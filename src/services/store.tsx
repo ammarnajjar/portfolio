@@ -47,7 +47,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return false;
   };
 
-  const refreshPortfolio = React.useCallback(async () => {
+  const refreshPortfolio = React.useCallback(async (opts: { force?: boolean } = {}) => {
     // Use the selected range if available by passing it to the API
     setIsLoading(true);
     if (!refreshControllerRef.current) refreshControllerRef.current = new AbortController();
@@ -72,7 +72,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const fetchRange = selectedRange || DEFAULT_RANGE;
 
           // For 1M we always fetch fresh (don't skip and don't cache the result)
-          const alreadyFetched = fetchRange !== DEFAULT_RANGE && item.fetchedRanges && item.fetchedRanges.includes(fetchRange);
+          const alreadyFetched = !opts.force && fetchRange !== DEFAULT_RANGE && item.fetchedRanges && item.fetchedRanges.includes(fetchRange);
           if (alreadyFetched) {
             // Clear isRefreshing flag for this item
             setPortfolio(current => current.map(p => p.id === item.id ? ({ ...p, isRefreshing: false }) : p));
@@ -112,6 +112,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsLoading(false);
     }
   }, [portfolio, selectedRange]);
+
+  const forceRefreshPortfolioRange = async (range: Range) => {
+    setSelectedRange(range);
+    if (refreshControllerRef.current) {
+      refreshControllerRef.current.abort();
+      refreshControllerRef.current = null;
+    }
+    return refreshPortfolio({ force: true });
+  };
 
   const stopRefresh = () => {
     if (refreshControllerRef.current) {
@@ -311,6 +320,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       removeStock,
       refreshPortfolio,
       refreshPortfolioRange,
+      forceRefreshPortfolioRange,
       exportPortfolio,
       importPortfolio,
       refreshStock,

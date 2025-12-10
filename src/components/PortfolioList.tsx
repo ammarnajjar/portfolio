@@ -7,7 +7,7 @@ type SortColumn = 'name' | 'symbol' | 'isin' | 'qty' | 'avgPrice' | 'current' | 
 type SortDirection = 'asc' | 'desc';
 
 export const PortfolioList: React.FC = () => {
-  const { portfolio, removeStock, addStock, refreshPortfolio, refreshStock, exportPortfolio, importPortfolio } = useStore();
+  const { portfolio, removeStock, addStock, refreshPortfolio, refreshStock, exportPortfolio, importPortfolio, selectedRange, forceRefreshPortfolioRange, isLoading } = useStore();
   const [sortCol, setSortCol] = useState<SortColumn>('name');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -154,12 +154,29 @@ export const PortfolioList: React.FC = () => {
   return (
     <div className="glass-panel overflow-hidden">
       <div className="p-4 flex justify-between items-center border-b border-slate-700/50">
+            <button
+             onClick={() => {
+               if (!forceRefreshPortfolioRange) return;
+               const r = selectedRange;
+               if (!r) return;
+               forceRefreshPortfolioRange(r);
+             }}
+             disabled={portfolio.length === 0 || !!isLoading}
+             className="px-3 py-1.5 bg-rose-700 hover:bg-rose-600 text-slate-200 text-sm rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+             title="Force refresh selected range for all items"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-9-9" />
+              </svg>
+              Force Refresh
+            </button>
         <h2 className="text-xl font-semibold text-white">Holdings</h2>
         <div className="flex gap-2">
           <div className="flex items-center gap-2">
             <button
              onClick={() => refreshPortfolio()}
-             disabled={portfolio.length === 0}
+             disabled={portfolio.length === 0 || !!isLoading}
              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
              title="Refresh All"
             >
@@ -334,7 +351,7 @@ export const PortfolioList: React.FC = () => {
                       }}
                       className="p-1 text-slate-400 hover:text-blue-400 transition-colors"
                       title="Refresh Quote"
-                      disabled={!!item.isRefreshing}
+                      disabled={!!item.isRefreshing || !!isLoading}
                     >
                       {item.isRefreshing ? (
                         <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24">

@@ -25,6 +25,7 @@ export interface AppState {
   refreshPortfolio: () => Promise<void>;
   refreshStock: (id: string) => Promise<void>;
   refreshPortfolioRange?: (range: Range) => Promise<void>;
+  forceRefreshPortfolioRange?: (range: Range) => Promise<void>;
   exportPortfolio?: () => string;
   importPortfolio?: (json: string) => number;
   // Currently selected range for chart/refresh
