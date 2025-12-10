@@ -7,6 +7,19 @@ import { DEFAULT_RANGE } from './ranges';
 
 import { StoreContext } from './store-context';
 
+// Merge two history arrays (by `time`) keeping unique timestamps.
+// Incoming entries overwrite existing entries for the same timestamp.
+const mergeHistories = (existing?: Candle[], incoming?: Candle[]): Candle[] => {
+  const map = new Map<string, Candle>();
+  if (existing && Array.isArray(existing)) {
+    for (const c of existing) map.set(c.time, c);
+  }
+  if (incoming && Array.isArray(incoming)) {
+    for (const c of incoming) map.set(c.time, c);
+  }
+  return Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
+};
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>(() => {
     const saved = localStorage.getItem('portfolio');
@@ -73,7 +86,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               name: quote.name || p.name,
               isin: quote.isin || p.isin,
               currentPrice: quote.price,
-              history,
+              history: mergeHistories(p.history, history),
               lastUpdated: new Date().toISOString(),
               isRefreshing: false,
               error: undefined,
@@ -236,7 +249,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         name: quote.name || item.name,
         isin: quote.isin || item.isin,
         currentPrice: quote.price,
-        history,
+        history: mergeHistories(item.history, history),
         fetchedRanges: fetchRange === DEFAULT_RANGE ? item.fetchedRanges : Array.from(new Set([...(item.fetchedRanges || []), fetchRange as Range])),
         lastUpdated: new Date().toISOString(),
         isRefreshing: false,
