@@ -25,5 +25,8 @@ export interface AppState {
   totalGain: number;
   totalGainPercent: number;
   portfolioHistory: Candle[]; // Aggregated history
+  autoRefreshEnabled?: boolean;
+  setAutoRefreshEnabled?: (enabled: boolean) => void;
+  stopRefresh?: () => void;
   // per-item refreshing is stored on PortfolioItem.isRefreshing
 }

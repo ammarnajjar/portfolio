@@ -7,7 +7,7 @@ import { PortfolioList } from './components/PortfolioList';
 import { PortfolioChart } from './components/Chart';
 
 const Dashboard: React.FC = () => {
-  const { totalValue, isLoading, refreshPortfolio } = useStore();
+  const { totalValue, isLoading, refreshPortfolio, stopRefresh } = useStore();
 
   return (
     <Layout>
@@ -21,15 +21,20 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <button
-            onClick={() => refreshPortfolio()}
-            className="p-2 rounded-full hover:bg-white/10 transition-colors"
-            title="Refresh Prices"
-            disabled={isLoading}
+            onClick={() => isLoading ? stopRefresh && stopRefresh() : refreshPortfolio()}
+            className={`p-2 rounded-full hover:bg-white/10 transition-colors ${isLoading ? 'bg-rose-600 text-white' : ''}`}
+            title={isLoading ? 'Stop Refresh' : 'Refresh Prices'}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"
-                 className={`w-6 h-6 ${isLoading ? 'animate-spin' : ''}`}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-            </svg>
+            {isLoading ? (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"
+                   className={`w-6 h-6`}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+            )}
           </button>
         </div>
 

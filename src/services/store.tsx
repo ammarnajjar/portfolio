@@ -11,13 +11,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : [];
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   // per-item refreshing is tracked on each PortfolioItem via `isRefreshing`
 
   useEffect(() => {
     localStorage.setItem('portfolio', JSON.stringify(portfolio));
   }, [portfolio]);
 
-  const refreshPortfolio = async () => {
+  // Controller for aborting an in-progress refresh
+  const refreshControllerRef = React.useRef<AbortController | null>(null);
+
+  const isAbort = (x: unknown) => {
+    if (!x) return false;
+    if (x instanceof Error) return x.name === 'AbortError' || x.message === 'AbortError';
+    if (typeof x === 'object' && x !== null) {
+      const o = x as Record<string, unknown>;
+      return o.name === 'AbortError' || o.message === 'AbortError';
+    }
+    return false;
+  };
+
+  const refreshPortfolio = React.useCallback(async () => {
     setIsLoading(true);
     try {
       // Batch updates to avoid overwhelming the proxy (limit concurrency)
@@ -34,7 +48,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             // mark item as refreshing
             updated[realIdx] = { ...updated[realIdx], isRefreshing: true };
             setPortfolio([...updated]);
-            const { quote, history } = await api.fetchStock(item.symbol);
+            // Create or reuse refresh controller
+            if (!refreshControllerRef.current) refreshControllerRef.current = new AbortController();
+            const signal = refreshControllerRef.current.signal;
+
+            const { quote, history } = await api.fetchStock(item.symbol, signal);
+            if (signal.aborted) throw new Error('Refresh aborted');
             // Update all metadata in case it was missing or improved
             updated[realIdx] = {
               ...item,
@@ -45,7 +64,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               lastUpdated: new Date().toISOString(),
               isRefreshing: false,
             };
-          } catch (e) {
+          } catch (e: unknown) {
+            const aborted = isAbort(e) || refreshControllerRef.current?.signal.aborted;
+            if (aborted) {
+              console.info('Portfolio refresh aborted by user');
+              // ensure controller is cleared
+              if (refreshControllerRef.current) {
+                refreshControllerRef.current = null;
+              }
+              // Clear isRefreshing flags for remaining items
+              setPortfolio(prev => prev.map(p => ({ ...p, isRefreshing: false })));
+              return;
+            }
             console.error(`Failed to refresh ${item.symbol}`, e);
             // Clear refreshing flag on failure
             updated[realIdx] = { ...updated[realIdx], isRefreshing: false };
@@ -60,9 +90,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       setPortfolio(updated);
     } finally {
+      // cleanup controller
+      if (refreshControllerRef.current) {
+        refreshControllerRef.current = null;
+      }
       setIsLoading(false);
     }
+  }, [portfolio]);
+
+  const stopRefresh = () => {
+    if (refreshControllerRef.current) {
+      refreshControllerRef.current.abort();
+      refreshControllerRef.current = null;
+    }
   };
+
+  // Auto-refresh effect: when enabled, refresh portfolio every 5 minutes.
+  React.useEffect(() => {
+    if (!autoRefreshEnabled) return;
+
+    let cancelled = false;
+    // Immediately trigger one refresh when enabling
+    (async () => {
+      try {
+        await refreshPortfolio();
+      } catch (e) {
+        void e;
+      }
+    })();
+
+    const INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+    const id = setInterval(() => {
+      if (cancelled) return;
+      refreshPortfolio().catch(() => {});
+    }, INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [autoRefreshEnabled, refreshPortfolio]);
 
 
   const addStock = async (symbol: string, qty: number, price: number, opts: { fetchQuote?: boolean } = { fetchQuote: true }, meta?: { lastUpdated?: string; currentPrice?: number }) => {
@@ -171,6 +238,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <StoreContext.Provider value={{
       portfolio,
       isLoading,
+      autoRefreshEnabled,
+      setAutoRefreshEnabled,
+      stopRefresh,
       addStock,
       removeStock,
       refreshPortfolio,

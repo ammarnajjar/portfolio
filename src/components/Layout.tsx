@@ -3,7 +3,7 @@ import React from 'react';
 import { useStore } from '../services/useStore';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { totalValue, totalCost, totalGain, totalGainPercent, portfolio } = useStore();
+  const { totalValue, totalCost, totalGain, totalGainPercent, portfolio, autoRefreshEnabled, setAutoRefreshEnabled } = useStore();
   const isPositive = totalGain >= 0;
 
   return (
@@ -21,6 +21,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
           {portfolio.length > 0 && (
             <div className="flex gap-8 text-right">
+              <div className="flex items-center gap-3">
+                <button
+                  className={`px-3 py-1 rounded-md text-sm font-medium ${autoRefreshEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-200'}`}
+                  onClick={() => setAutoRefreshEnabled && setAutoRefreshEnabled(!autoRefreshEnabled)}
+                >
+                  {autoRefreshEnabled ? 'Auto Refresh: On' : 'Auto Refresh: Off'}
+                </button>
+              </div>
               <div>
                 <div className="text-sm text-slate-400">Total Invested</div>
                 <div className="text-xl font-semibold text-slate-300">€{totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>

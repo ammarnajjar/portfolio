@@ -48,13 +48,15 @@ const SYMBOL_TO_ISIN = Object.entries(ISIN_MAP).reduce((acc, [isin, symbol]) => 
 type SearchQuote = { quoteType?: string; symbol?: string; [k: string]: unknown };
 
 export const api = {
-  async getMetadata(query: string): Promise<{ symbol: string; name: string; isin?: string }> {
+  async getMetadata(query: string, signal?: AbortSignal): Promise<{ symbol: string; name: string; isin?: string }> {
     const queryUrl = `${YAHOO_SEARCH_BASE}?q=${query}&quotesCount=1&newsCount=0`;
     const encodedUrl = encodeURIComponent(queryUrl);
 
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
+      // If an external signal is provided, abort the local controller when it aborts
+      if (signal) signal.addEventListener('abort', () => controller.abort());
       const response = await fetch(`${PROXY_BASE}${encodedUrl}`, { signal: controller.signal });
       clearTimeout(timeoutId);
 
@@ -84,7 +86,12 @@ export const api = {
       }
 
       return { symbol, name, isin };
-    } catch (e) {
+    } catch (e: unknown) {
+      // If fetch was aborted, propagate so callers can stop
+      const err = e as Error | undefined;
+      if ((err && (err.name === 'AbortError' || err.message === 'AbortError')) || (signal && signal.aborted)) {
+        throw e;
+      }
       console.warn('Metadata fetch failed:', e);
       // Fallback to local map even on error
       const knownIsin = SYMBOL_TO_ISIN[query.toUpperCase()];
@@ -96,7 +103,7 @@ export const api = {
     }
   },
 
-  async resolveISIN(isin: string): Promise<string> {
+  async resolveISIN(isin: string, signal?: AbortSignal): Promise<string> {
     // 0. Check local fallback map first
     if (ISIN_MAP[isin]) {
       console.log(`Resolved ISIN ${isin} via local map to ${ISIN_MAP[isin]}`);
@@ -108,7 +115,9 @@ export const api = {
     const encodedUrl = encodeURIComponent(queryUrl);
 
     try {
-      const response = await fetch(`${PROXY_BASE}${encodedUrl}`);
+      const controller = new AbortController();
+      if (signal) signal.addEventListener('abort', () => controller.abort());
+      const response = await fetch(`${PROXY_BASE}${encodedUrl}`, { signal: controller.signal });
       const data = await response.json();
       if (!data.contents) throw new Error('No data from proxy during ISIN resolve');
 
@@ -123,24 +132,36 @@ export const api = {
         return bestMatch.symbol;
       }
       throw new Error('ISIN not found');
-    } catch {
+    } catch (e: unknown) {
+      // If aborted, propagate
+      const err = e as Error | undefined;
+      if ((err && (err.name === 'AbortError' || err.message === 'AbortError')) || (signal && signal.aborted)) {
+        throw e;
+      }
       console.warn('ISIN resolve failed, retrying...');
       // Retry once
       try {
-        const response = await fetch(`${PROXY_BASE}${encodedUrl}`);
+        const controller2 = new AbortController();
+        if (signal) signal.addEventListener('abort', () => controller2.abort());
+        const response = await fetch(`${PROXY_BASE}${encodedUrl}`, { signal: controller2.signal });
         const data = await response.json();
         const searchData = JSON.parse(data.contents);
         const quotes = (searchData.quotes || []) as SearchQuote[];
         const bestMatch = quotes[0];
         if (bestMatch && bestMatch.symbol) return bestMatch.symbol;
       } catch (retryErr: unknown) {
+        // If retry was aborted, propagate
+        const rerr = retryErr as Error | undefined;
+        if ((rerr && (rerr.name === 'AbortError' || rerr.message === 'AbortError')) || (signal && signal.aborted)) {
+          throw retryErr;
+        }
         console.error('ISIN Resolution Retry Error:', retryErr);
       }
       throw new Error(`Could not resolve ISIN ${isin}. Please try using the Ticker symbol (e.g. AAPL).`);
     }
   },
 
-  async getExchangeRate(from: string, to: string): Promise<number> {
+  async getExchangeRate(from: string, to: string, signal?: AbortSignal): Promise<number> {
     if (from === to) return 1;
 
     // Retry helper
@@ -149,6 +170,7 @@ export const api = {
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
+          if (signal) signal.addEventListener('abort', () => controller.abort());
           const response = await fetch(`${PROXY_BASE}${encodeURIComponent(url)}`, { signal: controller.signal });
           clearTimeout(timeoutId);
           const data = await response.json();
@@ -181,13 +203,13 @@ export const api = {
     return 1;
   },
 
-  async fetchStock(input: string): Promise<{ quote: Quote; history: Candle[] }> {
+  async fetchStock(input: string, signal?: AbortSignal): Promise<{ quote: Quote; history: Candle[] }> {
     // 1. Resolve ISIN if detected
     let query = input;
     // Basic ISIN regex: 2 letters, 9 alphanum, 1 digit
     if (/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(input)) {
       try {
-        query = await this.resolveISIN(input);
+        query = await this.resolveISIN(input, signal);
         console.log(`Resolved ISIN ${input} to ${query}`);
       } catch (e) {
         console.warn('ISIN resolution failed in fetchStock', e);
@@ -196,7 +218,7 @@ export const api = {
     }
 
     // 2. Get Metadata (Symbol, Name, ISIN) with resolved symbol
-    const metadata = await this.getMetadata(query);
+      const metadata = await this.getMetadata(query, signal);
     const symbol = metadata.symbol;
 
     const range = '1mo';
@@ -210,6 +232,7 @@ export const api = {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout for chart data
+        if (signal) signal.addEventListener('abort', () => controller.abort());
         const response = await fetch(`${PROXY_BASE}${encodedUrl}`, { signal: controller.signal });
         clearTimeout(timeoutId);
 
@@ -240,7 +263,7 @@ export const api = {
 
       let rate = 1;
       if (currency !== 'EUR') {
-        rate = await this.getExchangeRate(currency, 'EUR');
+            rate = await this.getExchangeRate(currency, 'EUR', signal);
       }
 
       const timestamps = result.timestamp || [];

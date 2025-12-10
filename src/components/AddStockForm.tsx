@@ -52,7 +52,7 @@ export const AddStockForm: React.FC = () => {
         <input
           type="number"
           placeholder="Quantity"
-          className="glass-input w-full md:w-32"
+          className="glass-input w-full md:w-40"
           value={qty}
           onChange={e => setQty(e.target.value)}
           min="0.0001"
@@ -62,7 +62,7 @@ export const AddStockForm: React.FC = () => {
         <input
           type="number"
           placeholder="Avg Price (€)"
-          className="glass-input w-full md:w-32"
+          className="glass-input w-full md:w-40"
           value={avgPrice}
           onChange={e => setAvgPrice(e.target.value)}
           min="0"
