@@ -12,6 +12,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const [isLoading, setIsLoading] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+  const [selectedRange, setSelectedRange] = useState<'1M'|'3M'|'1Y'|'5Y'>('1M');
   // per-item refreshing is tracked on each PortfolioItem via `isRefreshing`
 
   useEffect(() => {
@@ -32,14 +33,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const refreshPortfolio = React.useCallback(async () => {
+    // Use the selected range if available by passing it to the API
     setIsLoading(true);
-
-    // Create controller once for the whole batch process
     if (!refreshControllerRef.current) refreshControllerRef.current = new AbortController();
     const signal = refreshControllerRef.current.signal;
-
     try {
-      const BATCH_SIZE = 3; // Smaller batch for smoother UI
+      const BATCH_SIZE = 3;
       const itemsToRefresh = [...portfolio];
 
       for (let i = 0; i < itemsToRefresh.length; i += BATCH_SIZE) {
@@ -47,74 +46,71 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         const batch = itemsToRefresh.slice(i, i + BATCH_SIZE);
 
-        // 1. Mark batch as refreshing immediately
         setPortfolio(current => current.map(p => {
           const inBatch = batch.find(b => b.id === p.id);
           return inBatch ? { ...p, isRefreshing: true, error: undefined } : p;
         }));
 
-        // 2. Process batch in parallel
         await Promise.all(batch.map(async (item) => {
           if (signal.aborted) return;
+          // Determine requested fetch range (default to 1M)
+          const fetchRange = selectedRange || '1M';
+
+          // For 1M we always fetch fresh (don't skip and don't cache the result)
+          const alreadyFetched = fetchRange !== '1M' && item.fetchedRanges && item.fetchedRanges.includes(fetchRange);
+          if (alreadyFetched) {
+            // Clear isRefreshing flag for this item
+            setPortfolio(current => current.map(p => p.id === item.id ? ({ ...p, isRefreshing: false }) : p));
+            return;
+          }
+
           try {
-            const { quote, history } = await api.fetchStock(item.symbol, signal);
-
-            // 3. Update Success immediately
-            setPortfolio(current => current.map(p => {
-              if (p.id !== item.id) return p;
-              return {
-                ...p,
-                name: quote.name || p.name,
-                isin: quote.isin || p.isin,
-                currentPrice: quote.price,
-                history,
-                lastUpdated: new Date().toISOString(),
-                isRefreshing: false,
-                error: undefined,
-              };
-            }));
+            const { quote, history } = await api.fetchStock(item.symbol, fetchRange, signal);
+            setPortfolio(current => current.map(p => p.id === item.id ? ({
+              ...p,
+              name: quote.name || p.name,
+              isin: quote.isin || p.isin,
+              currentPrice: quote.price,
+              history,
+              lastUpdated: new Date().toISOString(),
+              isRefreshing: false,
+              error: undefined,
+              fetchedRanges: fetchRange === '1M' ? p.fetchedRanges : Array.from(new Set([...(p.fetchedRanges || []), fetchRange as '1M'|'3M'|'1Y'|'5Y'])),
+            }) : p));
           } catch (e: unknown) {
-             const isAborted = isAbort(e) || signal.aborted;
-             if (isAborted) return; // Will be handled by finally/cleanup
-
-             console.error(`Failed to refresh ${item.symbol}`, e);
-             // 4. Update Error immediately
-             setPortfolio(current => current.map(p => {
-               if (p.id !== item.id) return p;
-               return {
-                 ...p,
-                 isRefreshing: false,
-                 error: e instanceof Error ? e.message : 'Unknown error'
-               };
-             }));
+            const isAborted = isAbort(e) || signal.aborted;
+            if (isAborted) return;
+            setPortfolio(current => current.map(p => p.id === item.id ? ({ ...p, isRefreshing: false, error: e instanceof Error ? e.message : 'Unknown error' }) : p));
           }
         }));
 
-        // Small delay between batches
-        if (i + BATCH_SIZE < itemsToRefresh.length && !signal.aborted) {
-           await new Promise(r => setTimeout(r, 500));
-        }
+        if (i + BATCH_SIZE < itemsToRefresh.length && !signal.aborted) await new Promise(r => setTimeout(r, 500));
       }
 
     } catch (e) {
-      console.error('Fatal error in refreshPortfolio', e);
     } finally {
       const isAborted = refreshControllerRef.current?.signal.aborted;
-      // If aborted, we need to ensure no items are left stuck in refreshing state
-      if (isAborted) {
-         setPortfolio(current => current.map(p => ({ ...p, isRefreshing: false })));
-      }
-
+      if (isAborted) setPortfolio(current => current.map(p => ({ ...p, isRefreshing: false })));
       refreshControllerRef.current = null;
       setIsLoading(false);
     }
-  }, [portfolio]);
+  }, [portfolio, selectedRange]);
 
   const stopRefresh = () => {
     if (refreshControllerRef.current) {
       refreshControllerRef.current.abort();
       refreshControllerRef.current = null;
     }
+  };
+
+  const refreshPortfolioRange = async (range: '1M'|'3M'|'1Y'|'5Y') => {
+    setSelectedRange(range);
+    // Ensure any in-progress refresh is cancelled and run fresh
+    if (refreshControllerRef.current) {
+      refreshControllerRef.current.abort();
+      refreshControllerRef.current = null;
+    }
+    return refreshPortfolio();
   };
 
   // Auto-refresh effect: when enabled, refresh portfolio every 5 minutes.
@@ -162,7 +158,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setIsLoading(true);
     try {
-      const { quote, history } = await api.fetchStock(symbol);
+      const fetchRange = selectedRange || '1M';
+      const { quote, history } = await api.fetchStock(symbol, fetchRange);
       const newItem: PortfolioItem = {
         id: crypto.randomUUID(),
         symbol: quote.symbol,
@@ -172,6 +169,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         avgPrice: price, // User enters price in EUR
         currentPrice: quote.price, // API returns price converted to EUR
         history,
+        fetchedRanges: fetchRange === '1M' ? undefined : [fetchRange as '1M'|'3M'|'1Y'|'5Y'],
         lastUpdated: new Date().toISOString(),
       };
       setPortfolio(prev => [...prev, newItem]);
@@ -227,20 +225,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const item = portfolio.find(p => p.id === id);
       if (!item) return;
 
-      const { quote, history } = await api.fetchStock(item.symbol);
+      const fetchRange = selectedRange || '1M';
+      const { quote, history } = await api.fetchStock(item.symbol, fetchRange);
       const updatedItem = {
         ...item,
         name: quote.name || item.name,
         isin: quote.isin || item.isin,
         currentPrice: quote.price,
         history,
+        fetchedRanges: fetchRange === '1M' ? item.fetchedRanges : Array.from(new Set([...(item.fetchedRanges || []), fetchRange as '1M'|'3M'|'1Y'|'5Y'])),
         lastUpdated: new Date().toISOString(),
         isRefreshing: false,
       };
 
       setPortfolio(prev => prev.map(p => p.id === id ? updatedItem : p));
     } catch (e) {
-      console.error(`Failed to refresh item ${id}`, e);
       // Update with error
       setPortfolio(prev => prev.map(p => p.id === id ? {
         ...p,
@@ -260,7 +259,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addStock,
       removeStock,
       refreshPortfolio,
+      refreshPortfolioRange,
       refreshStock,
+      selectedRange,
+      setSelectedRange,
       totalValue,
       totalCost,
       totalGain,
