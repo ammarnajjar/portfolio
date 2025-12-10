@@ -1,4 +1,5 @@
 import type { Candle } from './api';
+import type { Range } from './ranges';
 
 export interface PortfolioItem {
   id: string;
@@ -12,7 +13,7 @@ export interface PortfolioItem {
   lastUpdated?: string;
   isRefreshing?: boolean;
   // Which ranges have been fetched for this item (e.g. '1M','3M','1Y','5Y')
-  fetchedRanges?: ('1M'|'3M'|'1Y'|'5Y')[];
+  fetchedRanges?: Range[];
   error?: string;
 }
 
@@ -23,10 +24,12 @@ export interface AppState {
   removeStock: (id: string) => void;
   refreshPortfolio: () => Promise<void>;
   refreshStock: (id: string) => Promise<void>;
-  refreshPortfolioRange?: (range: '1M'|'3M'|'1Y'|'5Y') => Promise<void>;
-  // Currently selected range for chart/refresh (e.g. '1M','3M','1Y','5Y')
-  selectedRange?: '1M'|'3M'|'1Y'|'5Y';
-  setSelectedRange?: (r: '1M'|'3M'|'1Y'|'5Y') => void;
+  refreshPortfolioRange?: (range: Range) => Promise<void>;
+  exportPortfolio?: () => string;
+  importPortfolio?: (json: string) => number;
+  // Currently selected range for chart/refresh
+  selectedRange?: Range;
+  setSelectedRange?: (r: Range) => void;
   totalValue: number;
   totalCost: number;
   totalGain: number;

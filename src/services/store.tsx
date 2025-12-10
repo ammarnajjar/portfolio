@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { api } from './api';
 import type { Candle } from './api';
 import type { PortfolioItem } from './store-types';
+import type { Range } from './ranges';
+import { DEFAULT_RANGE } from './ranges';
 
 import { StoreContext } from './store-context';
 
@@ -12,7 +14,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const [isLoading, setIsLoading] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
-  const [selectedRange, setSelectedRange] = useState<'1M'|'3M'|'1Y'|'5Y'>('1M');
+  const [selectedRange, setSelectedRange] = useState<Range>(DEFAULT_RANGE);
   // per-item refreshing is tracked on each PortfolioItem via `isRefreshing`
 
   useEffect(() => {
@@ -54,10 +56,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await Promise.all(batch.map(async (item) => {
           if (signal.aborted) return;
           // Determine requested fetch range (default to 1M)
-          const fetchRange = selectedRange || '1M';
+          const fetchRange = selectedRange || DEFAULT_RANGE;
 
           // For 1M we always fetch fresh (don't skip and don't cache the result)
-          const alreadyFetched = fetchRange !== '1M' && item.fetchedRanges && item.fetchedRanges.includes(fetchRange);
+          const alreadyFetched = fetchRange !== DEFAULT_RANGE && item.fetchedRanges && item.fetchedRanges.includes(fetchRange);
           if (alreadyFetched) {
             // Clear isRefreshing flag for this item
             setPortfolio(current => current.map(p => p.id === item.id ? ({ ...p, isRefreshing: false }) : p));
@@ -75,7 +77,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               lastUpdated: new Date().toISOString(),
               isRefreshing: false,
               error: undefined,
-              fetchedRanges: fetchRange === '1M' ? p.fetchedRanges : Array.from(new Set([...(p.fetchedRanges || []), fetchRange as '1M'|'3M'|'1Y'|'5Y'])),
+              fetchedRanges: fetchRange === DEFAULT_RANGE ? p.fetchedRanges : Array.from(new Set([...(p.fetchedRanges || []), fetchRange as Range])),
             }) : p));
           } catch (e: unknown) {
             const isAborted = isAbort(e) || signal.aborted;
@@ -88,6 +90,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
     } catch (e) {
+      // Log fatal errors from the refresh loop
+      console.error('Fatal error in refreshPortfolio loop', e);
     } finally {
       const isAborted = refreshControllerRef.current?.signal.aborted;
       if (isAborted) setPortfolio(current => current.map(p => ({ ...p, isRefreshing: false })));
@@ -103,7 +107,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const refreshPortfolioRange = async (range: '1M'|'3M'|'1Y'|'5Y') => {
+  const refreshPortfolioRange = async (range: Range) => {
     setSelectedRange(range);
     // Ensure any in-progress refresh is cancelled and run fresh
     if (refreshControllerRef.current) {
@@ -158,8 +162,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setIsLoading(true);
     try {
-      const fetchRange = selectedRange || '1M';
-      const { quote, history } = await api.fetchStock(symbol, fetchRange);
+      const fetchRange = selectedRange || DEFAULT_RANGE;
+      const { quote, history } = await api.fetchStock(symbol, fetchRange as Range);
       const newItem: PortfolioItem = {
         id: crypto.randomUUID(),
         symbol: quote.symbol,
@@ -169,7 +173,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         avgPrice: price, // User enters price in EUR
         currentPrice: quote.price, // API returns price converted to EUR
         history,
-        fetchedRanges: fetchRange === '1M' ? undefined : [fetchRange as '1M'|'3M'|'1Y'|'5Y'],
+        fetchedRanges: fetchRange === DEFAULT_RANGE ? undefined : [fetchRange as Range],
         lastUpdated: new Date().toISOString(),
       };
       setPortfolio(prev => [...prev, newItem]);
@@ -225,15 +229,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const item = portfolio.find(p => p.id === id);
       if (!item) return;
 
-      const fetchRange = selectedRange || '1M';
-      const { quote, history } = await api.fetchStock(item.symbol, fetchRange);
+      const fetchRange = selectedRange || DEFAULT_RANGE;
+      const { quote, history } = await api.fetchStock(item.symbol, fetchRange as Range);
       const updatedItem = {
         ...item,
         name: quote.name || item.name,
         isin: quote.isin || item.isin,
         currentPrice: quote.price,
         history,
-        fetchedRanges: fetchRange === '1M' ? item.fetchedRanges : Array.from(new Set([...(item.fetchedRanges || []), fetchRange as '1M'|'3M'|'1Y'|'5Y'])),
+        fetchedRanges: fetchRange === DEFAULT_RANGE ? item.fetchedRanges : Array.from(new Set([...(item.fetchedRanges || []), fetchRange as Range])),
         lastUpdated: new Date().toISOString(),
         isRefreshing: false,
       };
@@ -249,6 +253,40 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Export current portfolio object as JSON string
+  const exportPortfolio = (): string => {
+    return JSON.stringify(portfolio, null, 2);
+  };
+
+  // Import a portfolio JSON string and replace current state.
+  // Returns number of items imported.
+  const importPortfolio = (json: string): number => {
+    try {
+      const parsed = JSON.parse(json) as PortfolioItem[];
+      if (!Array.isArray(parsed)) throw new Error('Invalid portfolio format');
+      // Basic validation: ensure required fields exist
+      const items = parsed.map((it) => ({
+        id: it.id || crypto.randomUUID(),
+        symbol: it.symbol,
+        name: it.name,
+        isin: it.isin,
+        qty: it.qty || 0,
+        avgPrice: it.avgPrice || 0,
+        currentPrice: it.currentPrice,
+        history: it.history,
+        lastUpdated: it.lastUpdated,
+        isRefreshing: false,
+        fetchedRanges: it.fetchedRanges,
+        error: undefined,
+      }));
+      setPortfolio(items);
+      return items.length;
+    } catch (e) {
+      console.error('Failed to import portfolio JSON', e);
+      throw e;
+    }
+  };
+
   return (
     <StoreContext.Provider value={{
       portfolio,
@@ -260,6 +298,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       removeStock,
       refreshPortfolio,
       refreshPortfolioRange,
+      exportPortfolio,
+      importPortfolio,
       refreshStock,
       selectedRange,
       setSelectedRange,

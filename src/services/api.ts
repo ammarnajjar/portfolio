@@ -188,15 +188,14 @@ export const api = {
     return 1;
   },
 
-  async fetchStock(input: string, rangeOrSignal?: string | AbortSignal, maybeSignal?: AbortSignal): Promise<{ quote: Quote; history: Candle[] }> {
+  async fetchStock(input: string, rangeOrSignal?: import('./ranges').Range | AbortSignal, maybeSignal?: AbortSignal): Promise<{ quote: Quote; history: Candle[] }> {
     let query = input;
     // Default range for chart history
-    let range = '1mo';
+    const { YAHOO_RANGE_MAP, DEFAULT_RANGE } = await import('./ranges');
+    let range = YAHOO_RANGE_MAP[DEFAULT_RANGE];
     let signal: AbortSignal | undefined;
     if (typeof rangeOrSignal === 'string') {
-      // Accept shorthand values from UI: '1M','3M','1Y','5Y'
-      const map: Record<string, string> = { '1M': '1mo', '3M': '3mo', '1Y': '1y', '5Y': '5y' };
-      range = map[rangeOrSignal] || rangeOrSignal || '1mo';
+      range = YAHOO_RANGE_MAP[rangeOrSignal as import('./ranges').Range] || rangeOrSignal || YAHOO_RANGE_MAP[DEFAULT_RANGE];
       signal = maybeSignal;
     } else {
       signal = rangeOrSignal as AbortSignal | undefined;

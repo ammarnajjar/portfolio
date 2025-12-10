@@ -2,10 +2,12 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createChart, ColorType, AreaSeries } from 'lightweight-charts';
 import type { IChartApi } from 'lightweight-charts';
 import { useStore } from '../services/useStore';
+import type { Range } from '../services/ranges';
+import { DEFAULT_RANGE } from '../services/ranges';
 
 export const PortfolioChart: React.FC = () => {
   const { portfolioHistory, portfolio, refreshPortfolioRange, setSelectedRange } = useStore();
-  const [range, setRange] = useState<'1M'|'3M'|'1Y'|'5Y'>('1M');
+  const [range, setRange] = useState<Range>(DEFAULT_RANGE);
   const [isRangeLoading, setIsRangeLoading] = useState(false);
 
   const filteredHistory = useMemo(() => {
@@ -96,12 +98,19 @@ export const PortfolioChart: React.FC = () => {
                 // If all items already have 1M fetched, skip network call
                 const allHave = portfolio.length > 0 && portfolio.every(p => p.fetchedRanges && p.fetchedRanges.includes('1M'));
                 if (allHave) {
-                  setSelectedRange && setSelectedRange('1M');
+                  if (setSelectedRange) setSelectedRange('1M' as Range);
                   return;
                 }
                 setIsRangeLoading(true);
-                setSelectedRange && setSelectedRange('1M');
-                try { await refreshPortfolioRange('1M'); } catch {} finally { setIsRangeLoading(false); }
+                if (setSelectedRange) setSelectedRange('1M');
+                try {
+                  await refreshPortfolioRange('1M');
+                } catch (err) {
+                  // Log and continue; UI will show previous state
+                  console.warn('Failed to refresh 1M range', err);
+                } finally {
+                  setIsRangeLoading(false);
+                }
               }}
               className={`px-3 py-1 text-sm rounded ${range === '1M' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-700/40'}`}>
               1M
@@ -112,12 +121,18 @@ export const PortfolioChart: React.FC = () => {
                 setRange('3M');
                 const allHave = portfolio.length > 0 && portfolio.every(p => p.fetchedRanges && p.fetchedRanges.includes('3M'));
                 if (allHave) {
-                  setSelectedRange && setSelectedRange('3M');
+                  if (setSelectedRange) setSelectedRange('3M' as Range);
                   return;
                 }
                 setIsRangeLoading(true);
-                setSelectedRange && setSelectedRange('3M');
-                try { await refreshPortfolioRange('3M'); } catch {} finally { setIsRangeLoading(false); }
+                if (setSelectedRange) setSelectedRange('3M' as Range);
+                try {
+                  await refreshPortfolioRange('3M' as Range);
+                } catch (err) {
+                  console.warn('Failed to refresh 3M range', err);
+                } finally {
+                  setIsRangeLoading(false);
+                }
               }}
               className={`px-3 py-1 text-sm rounded ${range === '3M' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-700/40'}`}>
               3M
@@ -128,12 +143,18 @@ export const PortfolioChart: React.FC = () => {
                 setRange('1Y');
                 const allHave = portfolio.length > 0 && portfolio.every(p => p.fetchedRanges && p.fetchedRanges.includes('1Y'));
                 if (allHave) {
-                  setSelectedRange && setSelectedRange('1Y');
+                  if (setSelectedRange) setSelectedRange('1Y' as Range);
                   return;
                 }
                 setIsRangeLoading(true);
-                setSelectedRange && setSelectedRange('1Y');
-                try { await refreshPortfolioRange('1Y'); } catch {} finally { setIsRangeLoading(false); }
+                if (setSelectedRange) setSelectedRange('1Y' as Range);
+                try {
+                  await refreshPortfolioRange('1Y' as Range);
+                } catch (err) {
+                  console.warn('Failed to refresh 1Y range', err);
+                } finally {
+                  setIsRangeLoading(false);
+                }
               }}
               className={`px-3 py-1 text-sm rounded ${range === '1Y' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-700/40'}`}>
               1Y
@@ -144,12 +165,18 @@ export const PortfolioChart: React.FC = () => {
                 setRange('5Y');
                 const allHave = portfolio.length > 0 && portfolio.every(p => p.fetchedRanges && p.fetchedRanges.includes('5Y'));
                 if (allHave) {
-                  setSelectedRange && setSelectedRange('5Y');
+                  if (setSelectedRange) setSelectedRange('5Y' as Range);
                   return;
                 }
                 setIsRangeLoading(true);
-                setSelectedRange && setSelectedRange('5Y');
-                try { await refreshPortfolioRange('5Y'); } catch {} finally { setIsRangeLoading(false); }
+                if (setSelectedRange) setSelectedRange('5Y' as Range);
+                try {
+                  await refreshPortfolioRange('5Y' as Range);
+                } catch (err) {
+                  console.warn('Failed to refresh 5Y range', err);
+                } finally {
+                  setIsRangeLoading(false);
+                }
               }}
               className={`px-3 py-1 text-sm rounded ${range === '5Y' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-700/40'}`}>
               5Y

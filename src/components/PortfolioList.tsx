@@ -7,10 +7,11 @@ type SortColumn = 'name' | 'symbol' | 'isin' | 'qty' | 'avgPrice' | 'current' | 
 type SortDirection = 'asc' | 'desc';
 
 export const PortfolioList: React.FC = () => {
-  const { portfolio, removeStock, addStock, refreshPortfolio, refreshStock } = useStore();
+  const { portfolio, removeStock, addStock, refreshPortfolio, refreshStock, exportPortfolio, importPortfolio } = useStore();
   const [sortCol, setSortCol] = useState<SortColumn>('name');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const jsonFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
     const csv = csvService.generateCSV(portfolio);
@@ -155,6 +156,7 @@ export const PortfolioList: React.FC = () => {
       <div className="p-4 flex justify-between items-center border-b border-slate-700/50">
         <h2 className="text-xl font-semibold text-white">Holdings</h2>
         <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
              onClick={() => refreshPortfolio()}
              disabled={portfolio.length === 0}
@@ -166,7 +168,10 @@ export const PortfolioList: React.FC = () => {
               </svg>
               Refresh All
             </button>
-           <button
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
              onClick={handleExport}
              disabled={portfolio.length === 0}
              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -186,6 +191,56 @@ export const PortfolioList: React.FC = () => {
              onChange={handleFileChange}
              accept=".csv"
            />
+          </div>
+
+          <div className="flex items-center gap-2">
+           <button
+             onClick={() => {
+               if (!exportPortfolio) return;
+               const json = exportPortfolio();
+               const blob = new Blob([json], { type: 'application/json' });
+               const url = URL.createObjectURL(blob);
+               const a = document.createElement('a');
+               a.href = url;
+               a.download = `portfolio-${new Date().toISOString().slice(0,10)}.json`;
+               document.body.appendChild(a);
+               a.click();
+               a.remove();
+               URL.revokeObjectURL(url);
+             }}
+             disabled={portfolio.length === 0}
+             className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+           >
+             Export JSON
+           </button>
+           <button
+             onClick={() => jsonFileInputRef.current?.click()}
+             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors shadow-lg shadow-blue-500/20"
+           >
+             Import JSON
+           </button>
+           <input
+             type="file"
+             ref={jsonFileInputRef}
+             hidden
+             onChange={async (e) => {
+               const file = e.target.files?.[0];
+               if (!file) return;
+               try {
+                 const txt = await file.text();
+                 if (!importPortfolio) return;
+                 const count = importPortfolio(txt);
+                 alert(`Imported ${count} items from JSON.`);
+               } catch (err) {
+                 console.error('Failed to import JSON', err);
+                 alert('Invalid portfolio JSON file.');
+               } finally {
+                 if (jsonFileInputRef.current) jsonFileInputRef.current.value = '';
+               }
+             }}
+             accept="application/json,.json"
+           />
+          </div>
         </div>
       </div>
 
