@@ -11,6 +11,7 @@ export interface PortfolioItem {
   history?: Candle[];
   lastUpdated?: string;
   isRefreshing?: boolean;
+  error?: string;
 }
 
 export interface AppState {

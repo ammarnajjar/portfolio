@@ -33,67 +33,79 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const refreshPortfolio = React.useCallback(async () => {
     setIsLoading(true);
+
+    // Create controller once for the whole batch process
+    if (!refreshControllerRef.current) refreshControllerRef.current = new AbortController();
+    const signal = refreshControllerRef.current.signal;
+
     try {
-      // Batch updates to avoid overwhelming the proxy (limit concurrency)
-      const updated = [...portfolio];
-      const BATCH_SIZE = 5;
+      const BATCH_SIZE = 3; // Smaller batch for smoother UI
+      const itemsToRefresh = [...portfolio];
 
-      for (let i = 0; i < updated.length; i += BATCH_SIZE) {
-        const batch = updated.slice(i, i + BATCH_SIZE);
-        // Process batch sequentially so we can indicate which item is being refreshed
-        for (let batchIdx = 0; batchIdx < batch.length; batchIdx++) {
-          const item = batch[batchIdx];
-          const realIdx = i + batchIdx;
+      for (let i = 0; i < itemsToRefresh.length; i += BATCH_SIZE) {
+        if (signal.aborted) break;
+
+        const batch = itemsToRefresh.slice(i, i + BATCH_SIZE);
+
+        // 1. Mark batch as refreshing immediately
+        setPortfolio(current => current.map(p => {
+          const inBatch = batch.find(b => b.id === p.id);
+          return inBatch ? { ...p, isRefreshing: true, error: undefined } : p;
+        }));
+
+        // 2. Process batch in parallel
+        await Promise.all(batch.map(async (item) => {
+          if (signal.aborted) return;
           try {
-            // mark item as refreshing
-            updated[realIdx] = { ...updated[realIdx], isRefreshing: true };
-            setPortfolio([...updated]);
-            // Create or reuse refresh controller
-            if (!refreshControllerRef.current) refreshControllerRef.current = new AbortController();
-            const signal = refreshControllerRef.current.signal;
-
             const { quote, history } = await api.fetchStock(item.symbol, signal);
-            if (signal.aborted) throw new Error('Refresh aborted');
-            // Update all metadata in case it was missing or improved
-            updated[realIdx] = {
-              ...item,
-              name: quote.name || item.name,
-              isin: quote.isin || item.isin,
-              currentPrice: quote.price,
-              history,
-              lastUpdated: new Date().toISOString(),
-              isRefreshing: false,
-            };
+
+            // 3. Update Success immediately
+            setPortfolio(current => current.map(p => {
+              if (p.id !== item.id) return p;
+              return {
+                ...p,
+                name: quote.name || p.name,
+                isin: quote.isin || p.isin,
+                currentPrice: quote.price,
+                history,
+                lastUpdated: new Date().toISOString(),
+                isRefreshing: false,
+                error: undefined,
+              };
+            }));
           } catch (e: unknown) {
-            const aborted = isAbort(e) || refreshControllerRef.current?.signal.aborted;
-            if (aborted) {
-              console.info('Portfolio refresh aborted by user');
-              // ensure controller is cleared
-              if (refreshControllerRef.current) {
-                refreshControllerRef.current = null;
-              }
-              // Clear isRefreshing flags for remaining items
-              setPortfolio(prev => prev.map(p => ({ ...p, isRefreshing: false })));
-              return;
-            }
-            console.error(`Failed to refresh ${item.symbol}`, e);
-            // Clear refreshing flag on failure
-            updated[realIdx] = { ...updated[realIdx], isRefreshing: false };
+             const isAborted = isAbort(e) || signal.aborted;
+             if (isAborted) return; // Will be handled by finally/cleanup
+
+             console.error(`Failed to refresh ${item.symbol}`, e);
+             // 4. Update Error immediately
+             setPortfolio(current => current.map(p => {
+               if (p.id !== item.id) return p;
+               return {
+                 ...p,
+                 isRefreshing: false,
+                 error: e instanceof Error ? e.message : 'Unknown error'
+               };
+             }));
           }
-        }
+        }));
 
-        // Small delay between batches to be nice to the API
-        if (i + BATCH_SIZE < updated.length) {
-            await new Promise(r => setTimeout(r, 500));
+        // Small delay between batches
+        if (i + BATCH_SIZE < itemsToRefresh.length && !signal.aborted) {
+           await new Promise(r => setTimeout(r, 500));
         }
       }
 
-      setPortfolio(updated);
+    } catch (e) {
+      console.error('Fatal error in refreshPortfolio', e);
     } finally {
-      // cleanup controller
-      if (refreshControllerRef.current) {
-        refreshControllerRef.current = null;
+      const isAborted = refreshControllerRef.current?.signal.aborted;
+      // If aborted, we need to ensure no items are left stuck in refreshing state
+      if (isAborted) {
+         setPortfolio(current => current.map(p => ({ ...p, isRefreshing: false })));
       }
+
+      refreshControllerRef.current = null;
       setIsLoading(false);
     }
   }, [portfolio]);
@@ -229,8 +241,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setPortfolio(prev => prev.map(p => p.id === id ? updatedItem : p));
     } catch (e) {
       console.error(`Failed to refresh item ${id}`, e);
-      // Clear the flag on error
-      setPortfolio(prev => prev.map(p => p.id === id ? { ...p, isRefreshing: false } : p));
+      // Update with error
+      setPortfolio(prev => prev.map(p => p.id === id ? {
+        ...p,
+        isRefreshing: false,
+        error: e instanceof Error ? e.message : 'Unknown error'
+      } : p));
     }
   };
 
