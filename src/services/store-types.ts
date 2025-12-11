@@ -22,15 +22,15 @@ export interface AppState {
   isLoading: boolean;
   addStock: (symbol: string, qty: number, price: number, opts?: { fetchQuote?: boolean }, meta?: { lastUpdated?: string; currentPrice?: number }) => Promise<void>;
   removeStock: (id: string) => void;
-  refreshPortfolio: () => Promise<void>;
+  refreshPortfolio: (opts?: { force?: boolean }) => Promise<void>;
   refreshStock: (id: string) => Promise<void>;
-  refreshPortfolioRange?: (range: Range) => Promise<void>;
-  forceRefreshPortfolioRange?: (range: Range) => Promise<void>;
-  exportPortfolio?: () => string;
-  importPortfolio?: (json: string) => number;
+  refreshPortfolioRange: (range: Range) => Promise<void>;
+  forceRefreshPortfolioRange: (range: Range) => Promise<void>;
+  exportPortfolio: () => string;
+  importPortfolio: (json: string) => number;
   // Currently selected range for chart/refresh
-  selectedRange?: Range;
-  setSelectedRange?: (r: Range) => void;
+  selectedRange: Range;
+  setSelectedRange: (r: Range) => void;
   totalValue: number;
   totalCost: number;
   totalGain: number;

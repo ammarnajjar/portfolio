@@ -6,19 +6,7 @@ import type { Range } from './ranges';
 import { DEFAULT_RANGE } from './ranges';
 
 import { StoreContext } from './store-context';
-
-// Merge two history arrays (by `time`) keeping unique timestamps.
-// Incoming entries overwrite existing entries for the same timestamp.
-const mergeHistories = (existing?: Candle[], incoming?: Candle[]): Candle[] => {
-  const map = new Map<string, Candle>();
-  if (existing && Array.isArray(existing)) {
-    for (const c of existing) map.set(c.time, c);
-  }
-  if (incoming && Array.isArray(incoming)) {
-    for (const c of incoming) map.set(c.time, c);
-  }
-  return Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
-};
+import { mergeHistories, isAbort } from './store-utils';
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>(() => {
@@ -37,15 +25,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Controller for aborting an in-progress refresh
   const refreshControllerRef = React.useRef<AbortController | null>(null);
 
-  const isAbort = (x: unknown) => {
-    if (!x) return false;
-    if (x instanceof Error) return x.name === 'AbortError' || x.message === 'AbortError';
-    if (typeof x === 'object' && x !== null) {
-      const o = x as Record<string, unknown>;
-      return o.name === 'AbortError' || o.message === 'AbortError';
-    }
-    return false;
-  };
+  // use imported `isAbort` from store-utils
 
   const refreshPortfolio = React.useCallback(async (opts: { force?: boolean } = {}) => {
     // Use the selected range if available by passing it to the API
@@ -106,8 +86,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Log fatal errors from the refresh loop
       console.error('Fatal error in refreshPortfolio loop', e);
     } finally {
-      const isAborted = refreshControllerRef.current?.signal.aborted;
-      if (isAborted) setPortfolio(current => current.map(p => ({ ...p, isRefreshing: false })));
+      // Always clear any per-item refreshing flags when the refresh loop finishes or is aborted.
+      setPortfolio(current => current.map(p => ({ ...p, isRefreshing: false })));
       refreshControllerRef.current = null;
       setIsLoading(false);
     }
@@ -284,23 +264,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Returns number of items imported.
   const importPortfolio = (json: string): number => {
     try {
-      const parsed = JSON.parse(json) as PortfolioItem[];
-      if (!Array.isArray(parsed)) throw new Error('Invalid portfolio format');
-      // Basic validation: ensure required fields exist
-      const items = parsed.map((it) => ({
-        id: it.id || crypto.randomUUID(),
-        symbol: it.symbol,
-        name: it.name,
-        isin: it.isin,
-        qty: it.qty || 0,
-        avgPrice: it.avgPrice || 0,
-        currentPrice: it.currentPrice,
-        history: it.history,
-        lastUpdated: it.lastUpdated,
-        isRefreshing: false,
-        fetchedRanges: it.fetchedRanges,
-        error: undefined,
-      }));
+      const parsed = JSON.parse(json);
+      if (!Array.isArray(parsed)) throw new Error('Invalid portfolio format: expected an array');
+
+      const items = parsed.map((it: unknown, idx: number) => {
+        if (!it || typeof it !== 'object') throw new Error(`Invalid portfolio item at index ${idx}: expected object`);
+        const obj = it as Record<string, unknown>;
+        if (!obj.symbol || typeof obj.symbol !== 'string') throw new Error(`Invalid portfolio item at index ${idx}: missing or invalid 'symbol'`);
+        if (obj.qty !== undefined && typeof obj.qty !== 'number') throw new Error(`Invalid portfolio item at index ${idx}: 'qty' must be a number`);
+        if (obj.avgPrice !== undefined && typeof obj.avgPrice !== 'number') throw new Error(`Invalid portfolio item at index ${idx}: 'avgPrice' must be a number`);
+
+        return {
+          id: (obj.id && typeof obj.id === 'string') ? obj.id : crypto.randomUUID(),
+          symbol: String(obj.symbol).toUpperCase(),
+          name: typeof obj.name === 'string' ? obj.name : undefined,
+          isin: typeof obj.isin === 'string' ? obj.isin : undefined,
+          qty: typeof obj.qty === 'number' ? obj.qty : 0,
+          avgPrice: typeof obj.avgPrice === 'number' ? obj.avgPrice : 0,
+          currentPrice: typeof obj.currentPrice === 'number' ? obj.currentPrice : undefined,
+          history: Array.isArray(obj.history) ? obj.history as Candle[] : undefined,
+          lastUpdated: typeof obj.lastUpdated === 'string' ? obj.lastUpdated : undefined,
+          isRefreshing: false,
+          fetchedRanges: Array.isArray(obj.fetchedRanges) ? obj.fetchedRanges as Range[] : undefined,
+          error: undefined,
+        } as PortfolioItem;
+      });
+
       setPortfolio(items);
       return items.length;
     } catch (e) {

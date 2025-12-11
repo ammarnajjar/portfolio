@@ -75,6 +75,9 @@ const fetchWithTimeout = async (url: string, options: RequestInit & { timeout?: 
   }
 };
 
+import type { Range } from './ranges';
+import { DEFAULT_RANGE, YAHOO_RANGE_MAP } from './ranges';
+
 export const api = {
   async getMetadata(query: string, signal?: AbortSignal): Promise<{ symbol: string; name: string; isin?: string }> {
     const queryUrl = `${YAHOO_SEARCH_BASE}?q=${query}&quotesCount=1&newsCount=0`;
@@ -188,14 +191,13 @@ export const api = {
     return 1;
   },
 
-  async fetchStock(input: string, rangeOrSignal?: import('./ranges').Range | AbortSignal, maybeSignal?: AbortSignal): Promise<{ quote: Quote; history: Candle[] }> {
+  async fetchStock(input: string, rangeOrSignal?: Range | AbortSignal, maybeSignal?: AbortSignal): Promise<{ quote: Quote; history: Candle[] }> {
     let query = input;
     // Default range for chart history
-    const { YAHOO_RANGE_MAP, DEFAULT_RANGE } = await import('./ranges');
     let range = YAHOO_RANGE_MAP[DEFAULT_RANGE];
     let signal: AbortSignal | undefined;
     if (typeof rangeOrSignal === 'string') {
-      range = YAHOO_RANGE_MAP[rangeOrSignal as import('./ranges').Range] || rangeOrSignal || YAHOO_RANGE_MAP[DEFAULT_RANGE];
+      range = YAHOO_RANGE_MAP[rangeOrSignal as Range] || rangeOrSignal || YAHOO_RANGE_MAP[DEFAULT_RANGE];
       signal = maybeSignal;
     } else {
       signal = rangeOrSignal as AbortSignal | undefined;
