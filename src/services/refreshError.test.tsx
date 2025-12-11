@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import { StoreProvider } from './store'
 import { api } from './api'
+import type { Range } from './ranges'
 import { StoreContext } from './store-context'
 
 vi.mock('./api')
@@ -27,14 +28,16 @@ describe('refresh error handling', () => {
     })
 
     // Mock api: GOOD returns data, BAD throws
-    const spy = vi.spyOn(api, 'fetchStock').mockImplementation(async (symbol: string, _rangeOrSignal?: any) => {
+    const spy = vi.spyOn(api, 'fetchStock').mockImplementation(async (symbol: string, _rangeOrSignal?: Range | AbortSignal, _maybeSignal?: AbortSignal) => {
+      void _rangeOrSignal
+      void _maybeSignal
       if (symbol === 'BAD') throw new Error('Network error')
       return { quote: { symbol, name: 'Ok', isin: 'XX', price: 11, changePercent: 0, currency: 'EUR' }, history: [{ time: '2025-01-01', value: 11 }] }
     })
 
     // set selected range and refresh
     await act(async () => {
-      result.current!.setSelectedRange('1M' as any)
+      result.current!.setSelectedRange('1M' as Range)
     })
 
     await act(async () => {

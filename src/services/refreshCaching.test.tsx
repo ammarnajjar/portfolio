@@ -25,6 +25,7 @@ describe('refresh caching behavior', () => {
     })
 
     const spy = vi.spyOn(api, 'fetchStock').mockImplementation(async (symbol: string, _rangeOrSignal?: Range | AbortSignal) => {
+      void _rangeOrSignal
       return { quote: { symbol, name: 'X', isin: 'XX', price: 1, changePercent: 0, currency: 'EUR' }, history: [{ time: '2020-01-01', value: 1 }] }
     })
 

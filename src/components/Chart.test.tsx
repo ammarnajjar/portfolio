@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { vi } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 
 // Mock lightweight-charts to avoid canvas / matchMedia issues in JSDOM
 vi.mock('lightweight-charts', () => {
@@ -45,7 +46,7 @@ describe('PortfolioChart', () => {
   });
 
   it('computes displayedHistory last point equal to totalValue', () => {
-    const { container } = render(<PortfolioChart />);
+    render(<PortfolioChart />);
     // The first aggregated value is 45, totalValue is 28, diff = -17
     // The periodGain is rendered inside the header span — read its textContent and normalize it
     const header = screen.getByText(/Portfolio Performance/).closest('h3');
