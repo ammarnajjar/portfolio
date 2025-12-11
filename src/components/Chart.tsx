@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createChart, ColorType, AreaSeries } from 'lightweight-charts';
-import type { IChartApi } from 'lightweight-charts';
+import type { IChartApi, ISeriesApi } from 'lightweight-charts';
 import { useStore } from '../services/useStore';
 import type { Range } from '../services/ranges';
 import { DEFAULT_RANGE } from '../services/ranges';
 
 export const PortfolioChart: React.FC = () => {
-  const { portfolioHistory, portfolio, refreshPortfolioRange, setSelectedRange } = useStore();
+  const { portfolioHistory, portfolio, refreshPortfolioRange, setSelectedRange, totalValue } = useStore();
   const [range, setRange] = useState<Range>(DEFAULT_RANGE);
   const [isRangeLoading, setIsRangeLoading] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -23,23 +23,50 @@ export const PortfolioChart: React.FC = () => {
     return portfolioHistory.filter(h => new Date(h.time + 'T00:00:00') >= cutoff);
   }, [portfolioHistory, range]);
 
+  const displayedHistory = useMemo(() => {
+    if (!filteredHistory || filteredHistory.length === 0) return [];
+    const arr = [...filteredHistory];
+    const last = arr[arr.length - 1];
+    const today = new Date().toISOString().split('T')[0];
+    // compute today's aggregate from per-stock currentPrice * qty (fallback to last candle value)
+    let todayValue = 0;
+    if (Array.isArray(portfolio) && portfolio.length > 0) {
+      todayValue = portfolio.reduce((acc, p) => {
+        const qty = p.qty || 0;
+        const price = typeof p.currentPrice === 'number' ? p.currentPrice : (Array.isArray(p.history) && p.history.length > 0 ? p.history[p.history.length - 1].value : 0);
+        return acc + (price * qty);
+      }, 0);
+    } else {
+      todayValue = totalValue;
+    }
+    // if computed value is zero, fallback to totalValue
+    const finalValue = todayValue > 0 ? todayValue : totalValue;
+
+    if (last.time === today) {
+      // replace final point value so chart matches header
+      arr[arr.length - 1] = { time: today, value: finalValue };
+    } else {
+      arr.push({ time: today, value: finalValue });
+    }
+    return arr;
+  }, [filteredHistory, totalValue, portfolio]);
+
   const periodGain = useMemo(() => {
-    if (!filteredHistory || filteredHistory.length < 2) return null;
-    const first = filteredHistory[0].value;
-    const last = filteredHistory[filteredHistory.length - 1].value;
+    if (!displayedHistory || displayedHistory.length < 2) return null;
+    const first = displayedHistory[0].value;
+    const last = displayedHistory[displayedHistory.length - 1].value;
     const diff = last - first;
     const percent = first > 0 ? (diff / first) * 100 : 0;
     return { diff, percent };
-  }, [filteredHistory]);
+  }, [displayedHistory]);
 
   const fmt = useMemo(() => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }), []);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-
+  const seriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  // initialize chart once
   useEffect(() => {
     if (!chartContainerRef.current) return;
-
-    if (portfolio.length === 0) return;
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -60,16 +87,11 @@ export const PortfolioChart: React.FC = () => {
       }
     });
 
-    const newSeries = chart.addSeries(AreaSeries, {
+    seriesRef.current = chart.addSeries(AreaSeries, {
       lineColor: '#3b82f6',
       topColor: 'rgba(59, 130, 246, 0.4)',
       bottomColor: 'rgba(59, 130, 246, 0.0)',
     });
-
-    if (filteredHistory.length > 0) {
-      newSeries.setData(filteredHistory);
-      chart.timeScale().fitContent();
-    }
 
     chartRef.current = chart;
 
@@ -84,8 +106,22 @@ export const PortfolioChart: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
     };
-  }, [filteredHistory, portfolio.length]);
+    // mount only once
+  }, []);
+
+  // update series data whenever displayedHistory (which includes today's total) changes
+  useEffect(() => {
+    if (!seriesRef.current) return;
+    if (displayedHistory.length > 0) {
+      seriesRef.current.setData(displayedHistory);
+      chartRef.current?.timeScale().fitContent();
+    } else {
+      seriesRef.current.setData([]);
+    }
+  }, [displayedHistory]);
 
   const perStockBreakdown = useMemo(() => {
     if (!portfolio || portfolio.length === 0) return [];
