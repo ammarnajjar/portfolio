@@ -22,8 +22,16 @@ export const PortfolioChart: React.FC = () => {
     return portfolioHistory.filter(h => new Date(h.time + 'T00:00:00') >= cutoff);
   }, [portfolioHistory, range]);
 
-  // Range changes are handled directly by button clicks which call `refreshPortfolioRange`.
+  const periodGain = useMemo(() => {
+    if (!filteredHistory || filteredHistory.length < 2) return null;
+    const first = filteredHistory[0].value;
+    const last = filteredHistory[filteredHistory.length - 1].value;
+    const diff = last - first;
+    const percent = first > 0 ? (diff / first) * 100 : 0;
+    return { diff, percent };
+  }, [filteredHistory]);
 
+  const fmt = useMemo(() => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }), []);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
 
@@ -80,7 +88,13 @@ export const PortfolioChart: React.FC = () => {
 
   return (
     <div className="glass-panel p-6">
-      <h3 className="text-xl font-semibold mb-4 text-slate-200">Portfolio Performance {range === '1M' ? '(1 Month)' : range === '3M' ? '(3 Months)' : range === '1Y' ? '(1 Year)' : range === '5Y' ? '(5 Years)' : ''}{isRangeLoading ? ' — fetching...' : ''}</h3>
+      <h3 className="text-xl font-semibold mb-4 text-slate-200">Portfolio Performance {range === '1M' ? '(1 Month)' : range === '3M' ? '(3 Months)' : range === '1Y' ? '(1 Year)' : range === '5Y' ? '(5 Years)' : ''}{isRangeLoading ? ' — fetching...' : ''}
+        {periodGain ? (
+          <span className={`ml-3 text-sm ${periodGain.diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {periodGain.diff >= 0 ? '+' : '-'}{fmt.format(Math.abs(periodGain.diff))} ({periodGain.percent >= 0 ? '+' : '-'}{Math.abs(periodGain.percent).toFixed(2)}%)
+          </span>
+        ) : null}
+      </h3>
       {portfolio.length === 0 ? (
         <div className="h-[300px] flex items-center justify-center text-slate-500">
           No data to display
