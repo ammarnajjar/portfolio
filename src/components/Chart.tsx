@@ -9,6 +9,7 @@ export const PortfolioChart: React.FC = () => {
   const { portfolioHistory, portfolio, refreshPortfolioRange, setSelectedRange } = useStore();
   const [range, setRange] = useState<Range>(DEFAULT_RANGE);
   const [isRangeLoading, setIsRangeLoading] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   const filteredHistory = useMemo(() => {
     if (!portfolioHistory || portfolioHistory.length === 0) return [];
@@ -85,6 +86,27 @@ export const PortfolioChart: React.FC = () => {
       chart.remove();
     };
   }, [filteredHistory, portfolio.length]);
+
+  const perStockBreakdown = useMemo(() => {
+    if (!portfolio || portfolio.length === 0) return [];
+    // compute cutoff the same way as filteredHistory
+    const now = new Date();
+    let cutoff = new Date(0);
+    if (range === '1M') cutoff = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    if (range === '3M') cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+    if (range === '1Y') cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    if (range === '5Y') cutoff = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
+
+    return portfolio.map(p => {
+      const h = Array.isArray(p.history) ? p.history.filter(h => new Date(h.time + 'T00:00:00') >= cutoff) : [];
+      if (!h || h.length < 2) return { id: p.id, symbol: p.symbol, diff: 0, percent: 0, qty: p.qty };
+      const first = h[0].value;
+      const last = h[h.length - 1].value;
+      const diff = (last - first) * (p.qty || 0);
+      const percent = first > 0 ? ((last - first) / first) : 0;
+      return { id: p.id, symbol: p.symbol, diff, percent, qty: p.qty };
+    }).filter(Boolean).sort((a, b) => a.symbol.localeCompare(b.symbol));
+  }, [portfolio, range]);
 
   return (
     <div className="glass-panel p-6">
@@ -197,6 +219,24 @@ export const PortfolioChart: React.FC = () => {
             </button>
           </div>
         </div>
+        {perStockBreakdown.length > 0 ? (
+          <div className="mt-4">
+            <button onClick={() => setShowBreakdown(s => !s)} className="text-sm text-slate-300 hover:underline mb-2">
+              {showBreakdown ? 'Hide' : 'Show'} per-stock breakdown ({perStockBreakdown.length})
+            </button>
+
+            {showBreakdown ? (
+              <div className="grid grid-cols-2 gap-2">
+                {perStockBreakdown.map(s => (
+                  <div key={s.id} className="flex items-center justify-between px-3 py-2 bg-slate-800/20 rounded">
+                    <div className="text-sm text-slate-200">{s.symbol}</div>
+                    <div className={`text-sm ${s.diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{s.diff >= 0 ? '+' : '-'}{fmt.format(Math.abs(s.diff))} <span className="text-slate-400">({(s.percent * 100).toFixed(2)}%)</span></div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
     </div>
   );
 };
