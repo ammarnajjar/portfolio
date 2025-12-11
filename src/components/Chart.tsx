@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createChart, ColorType, AreaSeries } from 'lightweight-charts';
 import type { IChartApi, ISeriesApi } from 'lightweight-charts';
 import { useStore } from '../services/useStore';
+import uiStorage from '../services/ui-storage';
 import type { Range } from '../services/ranges';
 import { DEFAULT_RANGE } from '../services/ranges';
 
@@ -9,7 +10,19 @@ export const PortfolioChart: React.FC = () => {
   const { portfolioHistory, portfolio, refreshPortfolioRange, setSelectedRange, totalValue } = useStore();
   const [range, setRange] = useState<Range>(DEFAULT_RANGE);
   const [isRangeLoading, setIsRangeLoading] = useState(false);
-  const [showBreakdown, setShowBreakdown] = useState(false);
+  const uiState = uiStorage.readUIState();
+  const [showBreakdown, setShowBreakdown] = useState<boolean>(() => uiState.showBreakdown ?? false);
+  const [showChart, setShowChart] = useState<boolean>(() => uiState.showChart ?? true);
+
+  // persist preference
+  useEffect(() => {
+    uiStorage.writeUIState({ showChart });
+  }, [showChart]);
+
+  // persist breakdown preference
+  useEffect(() => {
+    uiStorage.writeUIState({ showBreakdown });
+  }, [showBreakdown]);
 
   const filteredHistory = useMemo(() => {
     if (!portfolioHistory || portfolioHistory.length === 0) return [];
@@ -123,6 +136,21 @@ export const PortfolioChart: React.FC = () => {
     }
   }, [displayedHistory]);
 
+  // when toggling visibility, adjust chart height and fit content
+  useEffect(() => {
+    if (!chartRef.current || !chartContainerRef.current) return;
+    try {
+      chartRef.current.applyOptions({ height: showChart ? 300 : 0, width: chartContainerRef.current.clientWidth });
+      if (showChart) {
+        setTimeout(() => chartRef.current?.timeScale().fitContent(), 50);
+      }
+    } catch (e) {
+      // non-fatal
+       
+      console.warn('Failed to resize chart on toggle', e);
+    }
+  }, [showChart]);
+
   const perStockBreakdown = useMemo(() => {
     if (!portfolio || portfolio.length === 0) return [];
     // compute cutoff the same way as filteredHistory
@@ -158,7 +186,39 @@ export const PortfolioChart: React.FC = () => {
           No data to display
         </div>
       ) : (
-        <div ref={chartContainerRef} className="w-full h-[300px]" />
+        <>
+          <div className="mb-2">
+            <button
+              onClick={() => setShowChart(s => !s)}
+              className="text-sm text-slate-300 hover:underline"
+              aria-expanded={showChart}
+              aria-controls="portfolio-chart-region"
+            >
+              {showChart ? 'Hide' : 'Show'} chart
+            </button>
+          </div>
+          <div className="w-full">
+            <div
+              id="portfolio-chart-region"
+              ref={chartContainerRef}
+              className="w-full overflow-hidden"
+              style={{ height: showChart ? 300 : 0 }}
+              aria-hidden={!showChart}
+            />
+            {!showChart ? (
+              <div className="h-10 flex items-center justify-between text-slate-200 px-3">
+                <div className="text-sm">{fmt.format(totalValue)}</div>
+                {periodGain ? (
+                  <div className={`text-sm ${periodGain.diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {periodGain.diff >= 0 ? '+' : '-'}{fmt.format(Math.abs(periodGain.diff))} <span className="text-slate-400">({periodGain.percent >= 0 ? '+' : '-'}{Math.abs(periodGain.percent).toFixed(2)}%)</span>
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-400">—</div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </>
       )}
         <div className="flex items-center space-x-3">
           <div className="text-slate-300 text-sm">Range</div>

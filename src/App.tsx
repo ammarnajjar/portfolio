@@ -20,11 +20,12 @@ const Dashboard: React.FC = () => {
               €{totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
-          <button
-            onClick={() => isLoading ? stopRefresh && stopRefresh() : refreshPortfolio()}
-            className={`p-2 rounded-full hover:bg-white/10 transition-colors ${isLoading ? 'bg-rose-600 text-white' : ''}`}
-            title={isLoading ? 'Stop Refresh' : 'Refresh Prices'}
-          >
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => isLoading ? stopRefresh && stopRefresh() : refreshPortfolio()}
+              className={`p-2 rounded-full hover:bg-white/10 transition-colors ${isLoading ? 'bg-rose-600 text-white' : ''}`}
+              title={isLoading ? 'Stop Refresh' : 'Refresh Prices'}
+            >
             {isLoading ? (
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                 <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
@@ -35,7 +36,9 @@ const Dashboard: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
               </svg>
             )}
-          </button>
+            </button>
+            {/* refresh progress not exposed here */}
+          </div>
         </div>
 
         <AddStockForm />

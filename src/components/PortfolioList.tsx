@@ -2,6 +2,7 @@ import React from 'react';
 import { HeaderControls } from './PortfolioList/HeaderControls';
 import { PortfolioRow } from './PortfolioList/PortfolioRow';
 import usePortfolioList from './PortfolioList/usePortfolioList';
+import uiStorage from '../services/ui-storage';
 
 type SortColumn = 'name' | 'symbol' | 'isin' | 'qty' | 'avgPrice' | 'current' | 'value' | 'gain' | 'lastUpdated';
 
@@ -25,7 +26,16 @@ export const PortfolioList: React.FC = () => {
     portfolio,
     importPortfolio,
     removeStock,
+    totalValue,
+    portfolioHistory,
   } = usePortfolioList();
+  const uiState = uiStorage.readUIState();
+  const [showTable, setShowTable] = React.useState<boolean>(() => uiState.showTable ?? true);
+
+  // persist table collapse preference
+  React.useEffect(() => {
+    uiStorage.writeUIState({ showTable });
+  }, [showTable]);
   const Header = ({ col, label, w }: { col: SortColumn, label: string, w?: string }) => (
     <th
       className={`p-4 cursor-pointer hover:bg-slate-700/40 transition-colors select-none min-w-0 ${w || ''}`}
@@ -73,7 +83,19 @@ export const PortfolioList: React.FC = () => {
           <p>Your portfolio is empty. Add a stock or import a CSV backed up previously.</p>
         </div>
       ) : (
-      <div className="overflow-x-auto">
+      <div>
+        <div className="p-4">
+          <button
+            onClick={() => setShowTable(s => !s)}
+            className="text-sm text-slate-300 hover:underline mb-2"
+            aria-expanded={showTable}
+            aria-controls="portfolio-table-region"
+          >
+            {showTable ? 'Hide' : 'Show'} portfolio table ({portfolio.length})
+          </button>
+        </div>
+        {showTable ? (
+          <div id="portfolio-table-region" className="overflow-x-auto">
         <table className="w-full table-auto text-left">
           <thead>
             <tr className="bg-slate-700/30 text-slate-300">
@@ -95,7 +117,22 @@ export const PortfolioList: React.FC = () => {
             ))}
           </tbody>
         </table>
-       </div>
+          </div>
+        ) : (
+          <div id="portfolio-table-region" className="p-4 flex items-center justify-between text-slate-200">
+            <div className="text-sm">{new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(totalValue)}</div>
+            <div className="text-sm text-slate-400">
+              {portfolioHistory && portfolioHistory.length > 1 ? (() => {
+                const first = portfolioHistory[0].value;
+                const last = portfolioHistory[portfolioHistory.length - 1].value;
+                const diff = last - first;
+                const percent = first > 0 ? (diff / first) * 100 : 0;
+                return <span className={`${diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{diff >= 0 ? '+' : '-'}{new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(Math.abs(diff))} <span className="text-slate-400">({percent >= 0 ? '+' : '-'}{Math.abs(percent).toFixed(2)}%)</span></span>
+              })() : '—'}
+            </div>
+          </div>
+        )}
+      </div>
       )}
     </div>
   );

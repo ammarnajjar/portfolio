@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import storage from './storage';
 import { api } from './api';
 import type { Candle } from './api';
 import type { PortfolioItem } from './store-types';
@@ -10,17 +11,51 @@ import { mergeHistories, isAbort } from './store-utils';
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>(() => {
-    const saved = localStorage.getItem('portfolio');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const s = storage.get('portfolio', [] as PortfolioItem[]);
+      return s as PortfolioItem[];
+    } catch (e) {
+      void e;
+      return [];
+    }
   });
   const [isLoading, setIsLoading] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+  const [autoRefreshIntervalMinutes, setAutoRefreshIntervalMinutesRaw] = useState<number>(() => {
+    try {
+      const v = storage.get('autoRefreshIntervalMinutes', 5) as number | undefined;
+      return v ?? 5;
+    } catch (e) {
+      void e;
+      return 5;
+    }
+  });
+  // Track whether the current interval is the built-in default (i.e. no saved value existed on first load).
+  const [autoRefreshIntervalIsDefault, setAutoRefreshIntervalIsDefault] = useState<boolean>(() => {
+    try {
+      const state = storage.readState();
+      return Object.prototype.hasOwnProperty.call(state, 'autoRefreshIntervalMinutes') ? false : true;
+    } catch (e) {
+      void e;
+      return true;
+    }
+  });
+
+  // Wrapped setter: when user sets interval, we clear the "is default" flag and store the value.
+  const setAutoRefreshIntervalMinutes = (v: number) => {
+    setAutoRefreshIntervalMinutesRaw(v);
+    setAutoRefreshIntervalIsDefault(false);
+  };
   const [selectedRange, setSelectedRange] = useState<Range>(DEFAULT_RANGE);
   // per-item refreshing is tracked on each PortfolioItem via `isRefreshing`
 
   useEffect(() => {
-    localStorage.setItem('portfolio', JSON.stringify(portfolio));
+    storage.set('portfolio', portfolio);
   }, [portfolio]);
+
+  useEffect(() => {
+    storage.set('autoRefreshIntervalMinutes', autoRefreshIntervalMinutes);
+  }, [autoRefreshIntervalMinutes]);
 
   // Controller for aborting an in-progress refresh
   const refreshControllerRef = React.useRef<AbortController | null>(null);
@@ -120,30 +155,42 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Auto-refresh effect: when enabled, refresh portfolio every 5 minutes.
+  // Keep a ref to the latest refreshPortfolio so the interval effect
+  // doesn't re-run whenever `refreshPortfolio` identity changes (it
+  // changes when portfolio/selectedRange changes). We'll update the
+  // ref whenever refreshPortfolio changes and call the ref from the
+  // interval handler.
+  const refreshPortfolioRef = React.useRef(refreshPortfolio);
+  React.useEffect(() => {
+    refreshPortfolioRef.current = refreshPortfolio;
+  }, [refreshPortfolio]);
+
   React.useEffect(() => {
     if (!autoRefreshEnabled) return;
 
     let cancelled = false;
+
     // Immediately trigger one refresh when enabling
     (async () => {
       try {
-        await refreshPortfolio();
+        await refreshPortfolioRef.current();
       } catch (e) {
         void e;
       }
     })();
 
-    const INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+    const INTERVAL_MS = Math.max(1, autoRefreshIntervalMinutes) * 60 * 1000;
     const id = setInterval(() => {
       if (cancelled) return;
-      refreshPortfolio().catch(() => {});
+      // Call the latest refresh function via ref
+      refreshPortfolioRef.current().catch(() => {});
     }, INTERVAL_MS);
 
     return () => {
       cancelled = true;
       clearInterval(id);
     };
-  }, [autoRefreshEnabled, refreshPortfolio]);
+  }, [autoRefreshEnabled, autoRefreshIntervalMinutes]);
 
 
   const addStock = async (symbol: string, qty: number, price: number, opts: { fetchQuote?: boolean } = { fetchQuote: true }, meta?: { lastUpdated?: string; currentPrice?: number }) => {
@@ -305,6 +352,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       autoRefreshEnabled,
       setAutoRefreshEnabled,
       stopRefresh,
+      autoRefreshIntervalMinutes,
+      setAutoRefreshIntervalMinutes,
+      autoRefreshIntervalIsDefault,
       addStock,
       removeStock,
       refreshPortfolio,

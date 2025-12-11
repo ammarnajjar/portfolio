@@ -175,6 +175,9 @@ export const usePortfolioList = () => {
     portfolio,
     importPortfolio,
     removeStock,
+    // expose summary values for UI
+    totalValue: useStore().totalValue,
+    portfolioHistory: useStore().portfolioHistory,
   };
 }
 

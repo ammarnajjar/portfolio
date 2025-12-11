@@ -1,5 +1,0 @@
-# Ignore vite cache and build artifacts
-.vite/
-node_modules/
-dist/
-coverage/

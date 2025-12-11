@@ -39,5 +39,8 @@ export interface AppState {
   autoRefreshEnabled?: boolean;
   setAutoRefreshEnabled?: (enabled: boolean) => void;
   stopRefresh?: () => void;
+  autoRefreshIntervalMinutes?: number;
+  setAutoRefreshIntervalMinutes?: (minutes: number) => void;
+  autoRefreshIntervalIsDefault?: boolean;
   // per-item refreshing is stored on PortfolioItem.isRefreshing
 }
