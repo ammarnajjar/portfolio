@@ -1,5 +1,7 @@
+import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { describe, it, vi, expect } from 'vitest'
+import '@testing-library/jest-dom/vitest'
 
 import { HeaderControls } from './PortfolioList/HeaderControls'
 

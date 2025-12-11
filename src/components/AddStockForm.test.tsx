@@ -1,4 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import React from 'react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { act } from 'react'
 import { describe, it, vi, expect } from 'vitest'
 
 const addStockMock = vi.fn(() => Promise.resolve())
@@ -23,14 +26,14 @@ describe('AddStockForm', () => {
     const price = screen.getByPlaceholderText(/Avg Price/i)
     const submit = screen.getByRole('button', { name: /Add Asset/i })
 
-    fireEvent.change(symbol, { target: { value: 'AAPL' } })
-    fireEvent.change(qty, { target: { value: '2' } })
-    fireEvent.change(price, { target: { value: '150' } })
-
-    fireEvent.click(submit)
-
-    // wait for promise resolution
-    await new Promise((r) => setTimeout(r, 10))
+    await act(async () => {
+      await userEvent.type(symbol, 'AAPL')
+      await userEvent.type(qty, '2')
+      await userEvent.type(price, '150')
+      await userEvent.click(submit)
+      // wait for promise resolution
+      await new Promise((r) => setTimeout(r, 10))
+    })
 
     expect(addStockMock).toHaveBeenCalledWith('AAPL', 2, 150)
     expect((symbol as HTMLInputElement).value).toBe('')
