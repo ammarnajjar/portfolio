@@ -105,7 +105,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               lastUpdated: new Date().toISOString(),
               isRefreshing: false,
               error: undefined,
-              fetchedRanges: fetchRange === DEFAULT_RANGE ? p.fetchedRanges : Array.from(new Set([...(p.fetchedRanges || []), fetchRange as Range])),
+              // Persist the fetched range for the item (include DEFAULT_RANGE explicitly).
+              fetchedRanges: Array.from(new Set([...(p.fetchedRanges || []), fetchRange as Range])),
             }) : p));
           } catch (e: unknown) {
             const isAborted = isAbort(e) || signal.aborted;
@@ -222,7 +223,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         avgPrice: price, // User enters price in EUR
         currentPrice: quote.price, // API returns price converted to EUR
         history,
-        fetchedRanges: fetchRange === DEFAULT_RANGE ? undefined : [fetchRange as Range],
+        // Record the fetched range explicitly for new items created during refresh.
+        fetchedRanges: [fetchRange as Range],
         lastUpdated: new Date().toISOString(),
       };
       setPortfolio(prev => [...prev, newItem]);
@@ -286,7 +288,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isin: quote.isin || item.isin,
         currentPrice: quote.price,
         history: mergeHistories(item.history, history),
-        fetchedRanges: fetchRange === DEFAULT_RANGE ? item.fetchedRanges : Array.from(new Set([...(item.fetchedRanges || []), fetchRange as Range])),
+        // Always persist the range that was just fetched, including DEFAULT_RANGE.
+        fetchedRanges: Array.from(new Set([...(item.fetchedRanges || []), fetchRange as Range])),
         lastUpdated: new Date().toISOString(),
         isRefreshing: false,
       };
