@@ -12,7 +12,7 @@ export interface PortfolioItem {
   history?: Candle[];
   lastUpdated?: string;
   isRefreshing?: boolean;
-  // Which ranges have been fetched for this item (e.g. '1M','3M','1Y','5Y')
+  // Which ranges have been fetched for this item (e.g. '1D','1W','1M','3M','1Y','5Y')
   fetchedRanges?: Range[];
   error?: string;
 }
