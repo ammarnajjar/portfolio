@@ -76,8 +76,8 @@ export const fetchFundamentals = async (
   if (!qs.result?.[0]) throw new Error("No data returned for symbol");
 
   const {
-    defaultKeyStatistics: dks,
-    financialData: fd,
+    defaultKeyStatistics: dks = {},
+    financialData: fd = {},
     price: pr,
   } = qs.result[0];
 
