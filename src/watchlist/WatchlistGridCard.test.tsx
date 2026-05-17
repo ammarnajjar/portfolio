@@ -75,4 +75,11 @@ describe("WatchlistGridCard", () => {
     await userEvent.click(screen.getByTitle("Refresh"));
     expect(onRefresh).toHaveBeenCalledWith("grid-id");
   });
+
+  it("does not call onRefresh when disabled during loading", async () => {
+    const onRefresh = vi.fn();
+    render(<WatchlistGridCard item={makeItem({ isLoading: true })} onRemove={vi.fn()} onRefresh={onRefresh} />);
+    await userEvent.click(screen.getByTitle("Refresh"));
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
 });

@@ -30,6 +30,7 @@ export const WatchlistGridCard: React.FC<Props> = ({ item, onRemove, onRefresh }
         <div className="flex items-center gap-1 shrink-0">
           <button
             title="Refresh"
+            aria-label="Refresh"
             onClick={() => onRefresh(item.id)}
             disabled={item.isLoading}
             className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-40"
@@ -40,6 +41,7 @@ export const WatchlistGridCard: React.FC<Props> = ({ item, onRemove, onRefresh }
           </button>
           <button
             title="Remove"
+            aria-label="Remove"
             onClick={() => onRemove(item.id)}
             className="p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 transition-colors"
           >
