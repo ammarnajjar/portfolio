@@ -115,8 +115,8 @@ export const WatchlistView: React.FC = () => {
 
   return (
     <div className="grid grid-cols-1 gap-6">
-      {/* Add form */}
-      <div className="glass-panel p-6">
+      {/* Add form — sticky below the app header */}
+      <div className="glass-panel p-6 sticky top-20 z-[9] backdrop-blur-sm">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-white">Watchlist</h2>
           <div className="flex items-center gap-2">
