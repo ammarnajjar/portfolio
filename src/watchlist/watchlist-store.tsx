@@ -52,7 +52,6 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
       metrics: [],
       isLoading: true,
       error: null,
-      warning: null,
       lastUpdated: null,
     };
     setItems((prev) => {
@@ -63,6 +62,15 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       const result = await fetchFundamentals(input);
+      if (result.warning) {
+        // Remove the placeholder — don't persist unrecognised tickers
+        setItems((prev) => {
+          const next = prev.filter((it) => it.id !== id);
+          saveToStorage(next);
+          return next;
+        });
+        throw new Error(result.warning);
+      }
       const metrics = scoreMetrics(result.fundamentals);
       updateItem(id, {
         symbol: result.symbol,
@@ -73,13 +81,18 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
         metrics,
         isLoading: false,
         error: null,
-        warning: result.warning ?? null,
         lastUpdated: new Date().toISOString(),
       });
     } catch (e) {
+      // Remove placeholder for unrecognised tickers (already removed above),
+      // keep it for genuine API errors so the user can see what failed.
+      const msg = e instanceof Error ? e.message : 'Failed to fetch data';
+      if (msg.includes('not recognised')) {
+        throw e;
+      }
       updateItem(id, {
         isLoading: false,
-        error: e instanceof Error ? e.message : 'Failed to fetch data',
+        error: msg,
       });
     }
   };
@@ -95,7 +108,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
   const refreshItem = async (id: string) => {
     const item = items.find((it) => it.id === id);
     if (!item) return;
-    updateItem(id, { isLoading: true, error: null, warning: null });
+    updateItem(id, { isLoading: true, error: null });
     try {
       const result = await fetchFundamentals(item.input);
       const metrics = scoreMetrics(result.fundamentals);
@@ -108,7 +121,6 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
         metrics,
         isLoading: false,
         error: null,
-        warning: result.warning ?? null,
         lastUpdated: new Date().toISOString(),
       });
     } catch (e) {

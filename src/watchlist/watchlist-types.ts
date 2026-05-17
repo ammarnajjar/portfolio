@@ -52,7 +52,6 @@ export interface WatchlistItem {
   metrics: MetricResult[];
   isLoading: boolean;
   error: string | null;
-  warning: string | null;
   lastUpdated: string | null;
 }
 

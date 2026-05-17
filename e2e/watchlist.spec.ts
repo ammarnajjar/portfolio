@@ -136,7 +136,7 @@ test("Switching tabs preserves both views independently", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Add to Watchlist/i })).not.toBeVisible();
 });
 
-test("Warning banner shown for unrecognised ticker, metrics hidden", async ({ page }) => {
+test("Warning banner shown at top for unrecognised ticker, no card added", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Watchlist", exact: true }).click();
 
@@ -168,39 +168,15 @@ test("Warning banner shown for unrecognised ticker, metrics hidden", async ({ pa
   await page.getByPlaceholder(/Symbol or ISIN/i).fill("APPL");
   await page.getByRole("button", { name: /Add to Watchlist/i }).click();
 
-  // Warning banner should appear
+  // Warning banner should appear at top of the panel
   await expect(page.getByText(/symbol not recognised/i)).toBeVisible({ timeout: 10000 });
 
-  // Metrics table should NOT be shown
-  await expect(page.getByText(/Good|Caution|Red Flag/i).first()).not.toBeVisible();
-});
+  // No card should have been added — empty state still shown
+  await expect(page.getByText(/No stocks in your watchlist yet/i)).toBeVisible();
 
-test("Warning banner shown when pre-seeded item has warning field", async ({ page }) => {
-  await page.goto("/");
-
-  await page.evaluate(() => {
-    const item = {
-      id: "warn-test-id",
-      input: "APPL",
-      symbol: "APPL",
-      name: "APPL",
-      currentPrice: null,
-      currency: "USD",
-      fundamentals: null,
-      metrics: [],
-      isLoading: false,
-      error: null,
-      warning: "Symbol not recognised — check the ticker and try again",
-      lastUpdated: new Date().toISOString(),
-    };
-    localStorage.setItem("watchlist_state", JSON.stringify([item]));
-  });
-
-  await page.reload();
-  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
-
-  await expect(page.getByText(/symbol not recognised/i)).toBeVisible();
-  await expect(page.getByText(/Good|Caution|Red Flag/i).first()).not.toBeVisible();
+  // Dismiss button should clear the banner
+  await page.getByRole("button", { name: /Dismiss/i }).click();
+  await expect(page.getByText(/symbol not recognised/i)).not.toBeVisible();
 });
 
 test("Error state shown when API returns an error", async ({ page }) => {

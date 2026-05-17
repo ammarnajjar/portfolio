@@ -7,14 +7,22 @@ export const WatchlistView: React.FC = () => {
   const { items, addItem, removeItem, refreshItem } = useWatchlist();
   const [input, setInput] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
     setIsAdding(true);
+    setWarning(null);
     try {
       await addItem(input.trim());
       setInput("");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("not recognised")) {
+        setWarning(msg);
+        setInput("");
+      }
     } finally {
       setIsAdding(false);
     }
@@ -25,6 +33,21 @@ export const WatchlistView: React.FC = () => {
       {/* Add form */}
       <div className="glass-panel p-6">
         <h2 className="text-xl font-bold mb-4 text-white">Watchlist</h2>
+
+        {/* Warning banner — unrecognised ticker */}
+        {warning && (
+          <div className="mb-4 p-3 bg-amber-500/20 border border-amber-500/40 rounded-lg text-amber-300 text-sm flex items-center justify-between">
+            <span>{warning}</span>
+            <button
+              onClick={() => setWarning(null)}
+              className="ml-3 text-amber-400 hover:text-amber-200 transition-colors"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="flex gap-4">
           <input
             type="text"
