@@ -1,5 +1,5 @@
 // src/watchlist/WatchlistView.tsx
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useWatchlist } from "./useWatchlist";
 import { WatchlistCard } from "./WatchlistCard";
 import { WatchlistGridCard } from "./WatchlistGridCard";
@@ -26,6 +26,21 @@ export const WatchlistView: React.FC = () => {
     const saved = localStorage.getItem("watchlist_view_mode");
     return saved === "grid" ? "grid" : "list";
   });
+
+  useEffect(() => {
+    const header = document.getElementById("app-header");
+    if (!header) return;
+    const update = () => {
+      document.documentElement.style.setProperty(
+        "--header-height",
+        `${header.getBoundingClientRect().height}px`,
+      );
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(header);
+    return () => ro.disconnect();
+  }, []);
 
   const handleViewMode = (mode: ViewMode) => {
     localStorage.setItem("watchlist_view_mode", mode);
@@ -116,7 +131,7 @@ export const WatchlistView: React.FC = () => {
   return (
     <div className="grid grid-cols-1 gap-6">
       {/* Add form — sticky below the app header */}
-      <div className="glass-panel p-6 sticky top-20 z-[9] backdrop-blur-sm">
+      <div className="glass-panel p-6 sticky z-[9] backdrop-blur-sm" style={{ top: "var(--header-height, 5rem)" }}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-white">Watchlist</h2>
           <div className="flex items-center gap-2">

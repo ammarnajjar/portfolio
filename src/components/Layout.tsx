@@ -38,7 +38,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className="min-h-screen pb-10 px-2 sm:px-4">
-      <header className="py-6 px-4 mb-8 border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
+      <header id="app-header" className="py-6 px-4 mb-8 border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-8xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
           {/* Left: title + nav */}
           <div className="flex items-center gap-6">
