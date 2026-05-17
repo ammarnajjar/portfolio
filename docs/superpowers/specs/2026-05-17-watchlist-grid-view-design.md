@@ -37,7 +37,7 @@ Both Refresh and Remove icon buttons have `title`, `aria-label` attributes. Refr
 | File | Responsibility |
 |------|----------------|
 | `src/watchlist/watchlist-card-color.ts` | Pure `cardColor` helper; `CardColor` type |
-| `src/watchlist/watchlist-card-color.test.ts` | Unit tests (9 cases, including guard isolation) |
+| `src/watchlist/watchlist-card-color.test.ts` | Unit tests (8 cases, including guard isolation) |
 | `src/watchlist/WatchlistGridCard.tsx` | Compact colored card component |
 | `src/watchlist/WatchlistGridCard.test.tsx` | Unit tests (10 cases) |
 | `src/watchlist/WatchlistView.tsx` | Toggle state + localStorage + conditional rendering |
