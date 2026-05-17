@@ -1,6 +1,13 @@
 // src/watchlist/watchlist-api.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fetchFundamentals } from "./watchlist-api";
+import { fetchFundamentals, resetCrumbCache } from "./watchlist-api";
+
+const mockCrumb = (): void => {
+  vi.mocked(fetch).mockResolvedValueOnce({
+    ok: true,
+    text: async () => "test-crumb-value",
+  } as Response);
+};
 
 const mockQuoteSummaryResponse = {
   quoteSummary: {
@@ -47,6 +54,7 @@ const mockQuoteSummaryResponse = {
 describe("fetchFundamentals", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    resetCrumbCache();
   });
 
   afterEach(() => {
@@ -54,6 +62,7 @@ describe("fetchFundamentals", () => {
   });
 
   it("extracts fundamentals from quoteSummary response", async () => {
+    mockCrumb();
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => mockQuoteSummaryResponse,
@@ -81,7 +90,19 @@ describe("fetchFundamentals", () => {
     expect(result.fundamentals.payoutRatio).toBe(0.15);
   });
 
-  it("throws on HTTP error", async () => {
+  it("throws on crumb fetch failure", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+    } as Response);
+
+    await expect(fetchFundamentals("AAPL")).rejects.toThrow(
+      "Failed to get Yahoo crumb",
+    );
+  });
+
+  it("throws on HTTP error from quoteSummary", async () => {
+    mockCrumb();
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: false,
       status: 404,
@@ -93,6 +114,7 @@ describe("fetchFundamentals", () => {
   });
 
   it("throws on API-level error in response body", async () => {
+    mockCrumb();
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -105,6 +127,7 @@ describe("fetchFundamentals", () => {
 
   it("handles ISIN input by resolving symbol via local map", async () => {
     // US0378331005 = AAPL in ISIN_MAP — resolves without a search network call
+    mockCrumb();
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => mockQuoteSummaryResponse,

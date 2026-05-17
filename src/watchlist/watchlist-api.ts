@@ -5,8 +5,25 @@ import { ISIN_MAP } from "../services/api";
 const PROXY_BASE = "https://corsproxy.io/?";
 const YAHOO_BASE = "https://query1.finance.yahoo.com";
 const YAHOO_SEARCH_BASE = `${YAHOO_BASE}/v1/finance/search`;
+const YAHOO_CRUMB_URL = `${YAHOO_BASE}/v1/test/getcrumb`;
 
 const isIsin = (input: string) => /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(input);
+
+let cachedCrumb: string | null = null;
+export const resetCrumbCache = () => { cachedCrumb = null; };
+
+const getCrumb = async (signal?: AbortSignal): Promise<string> => {
+  if (cachedCrumb) return cachedCrumb;
+  const response = await fetch(`${PROXY_BASE}${encodeURIComponent(YAHOO_CRUMB_URL)}`, {
+    signal,
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error(`Failed to get Yahoo crumb: HTTP ${response.status}`);
+  const crumb = await response.text();
+  if (!crumb || crumb.includes('"error"')) throw new Error("Invalid crumb response from Yahoo Finance");
+  cachedCrumb = crumb.trim();
+  return cachedCrumb;
+};
 
 const proxyFetch = async (
   url: string,
@@ -14,6 +31,7 @@ const proxyFetch = async (
 ): Promise<unknown> => {
   const response = await fetch(`${PROXY_BASE}${encodeURIComponent(url)}`, {
     signal,
+    credentials: "include",
   });
   if (!response.ok) throw new Error(`HTTP error ${response.status}`);
   return response.json();
@@ -52,8 +70,9 @@ export const fetchFundamentals = async (
     ? await resolveSymbol(input, signal)
     : input.toUpperCase();
 
+  const crumb = await getCrumb(signal);
   const modules = "financialData,defaultKeyStatistics,price";
-  const url = `${YAHOO_BASE}/v10/finance/quoteSummary/${symbol}?modules=${modules}`;
+  const url = `${YAHOO_BASE}/v10/finance/quoteSummary/${symbol}?modules=${modules}&crumb=${encodeURIComponent(crumb)}`;
   const data = (await proxyFetch(url, signal)) as {
     quoteSummary: {
       result: Array<{
