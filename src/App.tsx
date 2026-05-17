@@ -12,10 +12,18 @@ import { WatchlistView } from "./watchlist/WatchlistView";
 
 const Dashboard: React.FC = () => {
   const { totalValue, isLoading, refreshPortfolio, stopRefresh } = useStore();
-  const [activeTab, setActiveTab] = useState<AppTab>("portfolio");
+  const [activeTab, setActiveTab] = useState<AppTab>(() => {
+    const saved = localStorage.getItem("active_tab");
+    return saved === "watchlist" ? "watchlist" : "portfolio";
+  });
+
+  const handleTabChange = (tab: AppTab) => {
+    localStorage.setItem("active_tab", tab);
+    setActiveTab(tab);
+  };
 
   return (
-    <Layout activeTab={activeTab} onTabChange={setActiveTab}>
+    <Layout activeTab={activeTab} onTabChange={handleTabChange}>
       <div className="grid grid-cols-1 gap-8">
         {/* Summary Card — always visible */}
         <div className="glass-panel p-6 bg-gradient-to-br from-blue-900/50 to-slate-900/50 flex justify-between items-center">

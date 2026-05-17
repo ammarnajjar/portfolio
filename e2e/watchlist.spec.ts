@@ -1,9 +1,11 @@
 import { test, expect } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
-  // Clear localStorage watchlist state before each test
   await page.goto("/");
-  await page.evaluate(() => localStorage.removeItem("watchlist_state"));
+  await page.evaluate(() => {
+    localStorage.removeItem("watchlist_state");
+    localStorage.removeItem("active_tab");
+  });
   await page.reload();
 });
 
@@ -177,6 +179,19 @@ test("Warning banner shown at top for unrecognised ticker, no card added", async
   // Dismiss button should clear the banner
   await page.getByRole("button", { name: /Dismiss/i }).click();
   await expect(page.getByText(/symbol not recognised/i)).not.toBeVisible();
+});
+
+test("Active tab persists across page reload", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Add to Watchlist/i })).toBeVisible();
+
+  await page.reload();
+
+  // Watchlist tab should still be active after reload
+  await expect(page.getByRole("button", { name: /Add to Watchlist/i })).toBeVisible();
+  const watchlistBtn = page.getByRole("button", { name: "Watchlist", exact: true });
+  await expect(watchlistBtn).toHaveClass(/bg-blue-600/);
 });
 
 test("Adding the same ticker twice shows a warning, no duplicate card", async ({ page }) => {
