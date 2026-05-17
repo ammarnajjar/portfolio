@@ -69,4 +69,20 @@ describe("cardColor", () => {
     });
     expect(cardColor(item)).toBe("green");
   });
+
+  it("returns neutral when isLoading even with populated metrics", () => {
+    const item = makeItem({
+      isLoading: true,
+      metrics: [{ key: "pe", label: "P/E", value: 15, displayValue: "15", verdict: "good", note: "" }],
+    });
+    expect(cardColor(item)).toBe("neutral");
+  });
+
+  it("returns neutral when error is set even with red metrics", () => {
+    const item = makeItem({
+      error: "oops",
+      metrics: [{ key: "pe", label: "P/E", value: 100, displayValue: "100", verdict: "red", note: "" }],
+    });
+    expect(cardColor(item)).toBe("neutral");
+  });
 });
