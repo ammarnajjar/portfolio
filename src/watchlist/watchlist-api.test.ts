@@ -85,6 +85,7 @@ describe("fetchFundamentals", () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: false,
       status: 404,
+      json: async () => ({ quoteSummary: { error: null } }),
     } as Response);
 
     await expect(fetchFundamentals("NOTEXIST")).rejects.toThrow(

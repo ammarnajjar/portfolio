@@ -43,6 +43,15 @@ export interface FetchFundamentalsResult {
   warning?: string;
 }
 
+const emptyFundamentals = (): FundamentalsData => ({
+  trailingPE: null, forwardPE: null, pegRatio: null, priceToBook: null,
+  enterpriseToEbitda: null, profitMargins: null, operatingMargins: null,
+  grossMargins: null, revenueGrowth: null, earningsGrowth: null,
+  returnOnEquity: null, freeCashflow: null, totalRevenue: null,
+  debtToEquity: null, currentRatio: null, payoutRatio: null,
+  sharesOutstanding: null, floatShares: null,
+});
+
 export const fetchFundamentals = async (
   input: string,
   signal?: AbortSignal,
@@ -54,7 +63,25 @@ export const fetchFundamentals = async (
   const modules = "financialData,defaultKeyStatistics,price";
   const url = `/api/yahoo-quotesummary?symbol=${encodeURIComponent(symbol)}&modules=${encodeURIComponent(modules)}`;
   const response = await fetch(url, { signal });
-  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+  if (!response.ok) {
+    // Try to extract Yahoo's error description before falling back to HTTP status
+    try {
+      const body = await response.json() as { quoteSummary?: { error?: { code?: string; description?: string } } };
+      const desc = body?.quoteSummary?.error?.description ?? "";
+      const code = body?.quoteSummary?.error?.code ?? "";
+      if (code === "Not Found" || desc.toLowerCase().includes("not found")) {
+        return {
+          symbol, name: symbol, currentPrice: null, currency: "USD",
+          fundamentals: emptyFundamentals(),
+          warning: "Symbol not recognised — check the ticker and try again",
+        };
+      }
+      if (desc) throw new Error(desc);
+    } catch (e) {
+      if (e instanceof Error && !e.message.startsWith("HTTP error")) throw e;
+    }
+    throw new Error(`HTTP error ${response.status}`);
+  }
   const data = (await response.json()) as {
     quoteSummary: {
       result: Array<{
