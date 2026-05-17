@@ -40,6 +40,12 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const addItem = async (input: string) => {
+    const normalised = input.trim().toUpperCase();
+    const duplicate = items.some(
+      (it) => it.input.toUpperCase() === normalised || it.symbol.toUpperCase() === normalised,
+    );
+    if (duplicate) throw new Error(`${normalised} is already in your watchlist`);
+
     const id = crypto.randomUUID();
     const placeholder: WatchlistItem = {
       id,

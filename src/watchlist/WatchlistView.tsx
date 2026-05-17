@@ -19,10 +19,8 @@ export const WatchlistView: React.FC = () => {
       setInput("");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("not recognised")) {
-        setWarning(msg);
-        setInput("");
-      }
+      setWarning(msg);
+      setInput("");
     } finally {
       setIsAdding(false);
     }

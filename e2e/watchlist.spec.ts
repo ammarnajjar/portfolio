@@ -179,6 +179,42 @@ test("Warning banner shown at top for unrecognised ticker, no card added", async
   await expect(page.getByText(/symbol not recognised/i)).not.toBeVisible();
 });
 
+test("Adding the same ticker twice shows a warning, no duplicate card", async ({ page }) => {
+  await page.goto("/");
+
+  // Pre-seed with MSFT already in the watchlist
+  await page.evaluate(() => {
+    const item = {
+      id: "dup-test-id",
+      input: "MSFT",
+      symbol: "MSFT",
+      name: "Microsoft Corporation",
+      currentPrice: 420.0,
+      currency: "USD",
+      fundamentals: null,
+      metrics: [],
+      isLoading: false,
+      error: null,
+      lastUpdated: new Date().toISOString(),
+    };
+    localStorage.setItem("watchlist_state", JSON.stringify([item]));
+  });
+
+  await page.reload();
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+  await expect(page.getByText("Microsoft Corporation")).toBeVisible();
+
+  // Try to add MSFT again
+  await page.getByPlaceholder(/Symbol or ISIN/i).fill("MSFT");
+  await page.getByRole("button", { name: /Add to Watchlist/i }).click();
+
+  // Warning banner should appear
+  await expect(page.getByText(/already in your watchlist/i)).toBeVisible({ timeout: 5000 });
+
+  // Still only one card
+  await expect(page.getByText("Microsoft Corporation")).toHaveCount(1);
+});
+
 test("Error state shown when API returns an error", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Watchlist", exact: true }).click();
