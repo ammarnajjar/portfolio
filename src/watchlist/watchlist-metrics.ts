@@ -126,7 +126,7 @@ export const scoreMetrics = (f: FundamentalsData): MetricResult[] => {
   } else {
     const v = f.operatingMargins;
     const verdict: MetricVerdict =
-      v > 0.2 ? "good" : v >= 0.08 ? "caution" : "red";
+      v > 0.2 ? "good" : v >= 0.05 ? "caution" : "red";
     results.push(
       score(
         "opMargin",
@@ -284,7 +284,7 @@ export const scoreMetrics = (f: FundamentalsData): MetricResult[] => {
   } else {
     const v = f.payoutRatio;
     const verdict: MetricVerdict =
-      v >= 0.2 && v <= 0.6 ? "good" : v <= 0.8 ? "caution" : "red";
+      v >= 0.2 && v <= 0.6 ? "good" : v <= 0.9 ? "caution" : "red";
     results.push(
       score(
         "payout",
