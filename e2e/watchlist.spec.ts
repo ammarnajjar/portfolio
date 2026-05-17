@@ -254,3 +254,82 @@ test("Error state shown when API returns an error", async ({ page }) => {
   // Should show an error card
   await expect(page.getByText(/No fundamentals found for ZZZZZZ/i)).toBeVisible({ timeout: 10000 });
 });
+
+test("Export CSV downloads a file with correct headers", async ({ page }) => {
+  await page.goto("/");
+
+  await page.evaluate(() => {
+    const item = {
+      id: "export-test-id",
+      input: "AAPL",
+      symbol: "AAPL",
+      name: "Apple Inc.",
+      currentPrice: 175.0,
+      currency: "USD",
+      fundamentals: null,
+      metrics: [],
+      isLoading: false,
+      error: null,
+      lastUpdated: new Date().toISOString(),
+    };
+    localStorage.setItem("watchlist_state", JSON.stringify([item]));
+  });
+
+  await page.reload();
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export CSV/i }).click(),
+  ]);
+
+  expect(download.suggestedFilename()).toMatch(/^watchlist-\d{4}-\d{2}-\d{2}\.csv$/);
+  const path = await download.path();
+  const fs = await import("fs");
+  const content = fs.readFileSync(path!, "utf-8");
+  expect(content).toContain("Symbol;Name;ISIN");
+  expect(content).toContain("AAPL");
+  expect(content).toContain("Apple Inc.");
+});
+
+test("Import CSV adds items and shows success banner", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+
+  await page.route("**/api/yahoo-quotesummary**", async (route) => {
+    const url = new URL(route.request().url());
+    const symbol = url.searchParams.get("symbol") ?? "UNKNOWN";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        quoteSummary: {
+          result: [{
+            defaultKeyStatistics: {},
+            financialData: {},
+            price: {
+              symbol,
+              longName: symbol === "AAPL" ? "Apple Inc." : "Microsoft Corporation",
+              regularMarketPrice: { raw: 175.0 },
+              currency: "USD",
+            },
+          }],
+          error: null,
+        },
+      }),
+    });
+  });
+
+  const csvContent = "Symbol;Name;ISIN\nAAPL;Apple Inc.;US0378331005\nMSFT;Microsoft Corporation;\n";
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: /Import CSV/i }).click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
+    name: "watchlist.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(csvContent),
+  });
+
+  await expect(page.getByText(/imported 2/i)).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(/Apple Inc\.|AAPL/i).first()).toBeVisible({ timeout: 20000 });
+});
