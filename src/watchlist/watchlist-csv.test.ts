@@ -68,4 +68,12 @@ describe("parseWatchlistCSV", () => {
     const rows = await parseWatchlistCSV(file);
     expect(rows[0].symbol).toBe("AAPL");
   });
+
+  it("round-trips a name containing double-quotes", async () => {
+    const original = [{ symbol: "X", name: 'Say "Hi"', isin: undefined }];
+    const csv = generateWatchlistCSV(original);
+    const file = new File([csv], "watchlist.csv", { type: "text/csv" });
+    const rows = await parseWatchlistCSV(file);
+    expect(rows[0].name).toBe('Say "Hi"');
+  });
 });

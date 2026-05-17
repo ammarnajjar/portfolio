@@ -7,6 +7,36 @@ export interface WatchlistCSVRow {
 const quoteName = (name: string): string =>
   `"${name.replace(/"/g, '""')}"`;
 
+const unquote = (s: string): string => {
+  const trimmed = s.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+};
+
+const splitLine = (line: string): string[] => {
+  const parts: string[] = [];
+  let current = "";
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"' && inQuote && line[i + 1] === '"') {
+      current += '"';
+      i++;
+    } else if (ch === '"') {
+      inQuote = !inQuote;
+    } else if (ch === ';' && !inQuote) {
+      parts.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current.trim());
+  return parts;
+};
+
 export const generateWatchlistCSV = (rows: WatchlistCSVRow[]): string => {
   const header = "Symbol;Name;ISIN";
   const lines = rows.map(
@@ -21,7 +51,7 @@ export const downloadWatchlistCSV = (csv: string, filename: string): void => {
   const url = URL.createObjectURL(blob);
   link.setAttribute("href", url);
   link.setAttribute("download", filename);
-  link.style.visibility = "hidden";
+  link.style.display = "none";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -35,24 +65,6 @@ export const parseWatchlistCSV = (file: File): Promise<WatchlistCSVRow[]> =>
     reader.onload = (e) => {
       const text = (e.target?.result as string) ?? "";
       const lines = text.split("\n");
-
-      const splitLine = (line: string): string[] => {
-        const parts: string[] = [];
-        let current = "";
-        let inQuote = false;
-        for (const ch of line) {
-          if (ch === '"') {
-            inQuote = !inQuote;
-          } else if (ch === ";" && !inQuote) {
-            parts.push(current.trim());
-            current = "";
-          } else {
-            current += ch;
-          }
-        }
-        parts.push(current.trim());
-        return parts;
-      };
 
       const normalize = (s: string) =>
         s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -68,10 +80,10 @@ export const parseWatchlistCSV = (file: File): Promise<WatchlistCSVRow[]> =>
         const line = lines[i].trim();
         if (!line) continue;
         const parts = splitLine(line);
-        const symbol = parts[0]?.replace(/^"|"$/g, "").trim().toUpperCase();
+        const symbol = unquote(parts[0] ?? "").toUpperCase();
         if (!symbol) continue;
-        const name = parts[1]?.replace(/^"|"$/g, "").trim() ?? symbol;
-        const isin = parts[2]?.replace(/^"|"$/g, "").trim() || undefined;
+        const name = unquote(parts[1] ?? "") || symbol;
+        const isin = unquote(parts[2] ?? "") || undefined;
         rows.push({ symbol, name, isin });
       }
       resolve(rows);
