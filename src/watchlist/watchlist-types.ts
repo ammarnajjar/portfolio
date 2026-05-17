@@ -60,4 +60,5 @@ export interface WatchlistState {
   addItem: (input: string) => Promise<void>;
   removeItem: (id: string) => void;
   refreshItem: (id: string) => Promise<void>;
+  refreshAll: () => Promise<void>;
 }

@@ -139,8 +139,12 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const refreshAll = async () => {
+    await Promise.all(itemsRef.current.map((it) => refreshItem(it.id)));
+  };
+
   return (
-    <WatchlistContext.Provider value={{ items, addItem, removeItem, refreshItem }}>
+    <WatchlistContext.Provider value={{ items, addItem, removeItem, refreshItem, refreshAll }}>
       {children}
     </WatchlistContext.Provider>
   );

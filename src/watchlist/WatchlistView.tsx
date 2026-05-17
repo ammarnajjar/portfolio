@@ -11,9 +11,10 @@ import {
 import { ISIN_REGEX } from "./watchlist-api";
 
 export const WatchlistView: React.FC = () => {
-  const { items, addItem, removeItem, refreshItem } = useWatchlist();
+  const { items, addItem, removeItem, refreshItem, refreshAll } = useWatchlist();
   const [input, setInput] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,6 +35,15 @@ export const WatchlistView: React.FC = () => {
       setInput("");
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  const handleRefreshAll = async () => {
+    setIsRefreshingAll(true);
+    try {
+      await refreshAll();
+    } finally {
+      setIsRefreshingAll(false);
     }
   };
 
@@ -108,6 +118,27 @@ export const WatchlistView: React.FC = () => {
               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isImporting ? "Importing..." : "Import CSV"}
+            </button>
+            <button
+              onClick={handleRefreshAll}
+              disabled={items.length === 0 || isImporting}
+              className={`p-2 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isRefreshingAll ? "animate-spin" : ""}`}
+              title="Refresh All"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-5 h-5 text-slate-300"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+                />
+              </svg>
             </button>
             <input
               ref={fileInputRef}
