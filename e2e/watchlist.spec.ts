@@ -372,6 +372,9 @@ test("Switching to grid view shows grid cards instead of detail cards", async ({
   // Stock name should still be visible in grid card
   await expect(page.getByText("Apple Inc.")).toBeVisible();
   await expect(page.getByText("AAPL")).toBeVisible();
+
+  // Grid container should be present (list view uses individual cards, not a grid wrapper)
+  await expect(page.locator(".grid.grid-cols-2").first()).toBeVisible();
 });
 
 test("Grid view mode persists across page reload", async ({ page }) => {

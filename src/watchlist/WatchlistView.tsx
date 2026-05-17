@@ -125,6 +125,7 @@ export const WatchlistView: React.FC = () => {
               onClick={() => handleViewMode("list")}
               title="List view"
               aria-label="List view"
+              aria-pressed={viewMode === "list"}
               className={viewMode === "list" ? activeBtn : inactiveBtn}
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -135,6 +136,7 @@ export const WatchlistView: React.FC = () => {
               onClick={() => handleViewMode("grid")}
               title="Grid view"
               aria-label="Grid view"
+              aria-pressed={viewMode === "grid"}
               className={viewMode === "grid" ? activeBtn : inactiveBtn}
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -217,7 +219,7 @@ export const WatchlistView: React.FC = () => {
       )}
 
       {/* List view */}
-      {viewMode === "list" && items.map((item) => (
+      {viewMode === "list" && items.length > 0 && items.map((item) => (
         <WatchlistCard
           key={item.id}
           item={item}
