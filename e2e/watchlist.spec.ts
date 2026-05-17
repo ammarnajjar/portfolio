@@ -136,6 +136,73 @@ test("Switching tabs preserves both views independently", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Add to Watchlist/i })).not.toBeVisible();
 });
 
+test("Warning banner shown for unrecognised ticker, metrics hidden", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+
+  // Intercept and return a response with no longName and no regularMarketPrice
+  await page.route("**/api/yahoo-quotesummary**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        quoteSummary: {
+          result: [
+            {
+              defaultKeyStatistics: {},
+              financialData: {},
+              price: {
+                symbol: "APPL",
+                longName: null,
+                regularMarketPrice: null,
+                currency: "USD",
+              },
+            },
+          ],
+          error: null,
+        },
+      }),
+    });
+  });
+
+  await page.getByPlaceholder(/Symbol or ISIN/i).fill("APPL");
+  await page.getByRole("button", { name: /Add to Watchlist/i }).click();
+
+  // Warning banner should appear
+  await expect(page.getByText(/symbol not recognised/i)).toBeVisible({ timeout: 10000 });
+
+  // Metrics table should NOT be shown
+  await expect(page.getByText(/Good|Caution|Red Flag/i).first()).not.toBeVisible();
+});
+
+test("Warning banner shown when pre-seeded item has warning field", async ({ page }) => {
+  await page.goto("/");
+
+  await page.evaluate(() => {
+    const item = {
+      id: "warn-test-id",
+      input: "APPL",
+      symbol: "APPL",
+      name: "APPL",
+      currentPrice: null,
+      currency: "USD",
+      fundamentals: null,
+      metrics: [],
+      isLoading: false,
+      error: null,
+      warning: "Symbol not recognised — check the ticker and try again",
+      lastUpdated: new Date().toISOString(),
+    };
+    localStorage.setItem("watchlist_state", JSON.stringify([item]));
+  });
+
+  await page.reload();
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+
+  await expect(page.getByText(/symbol not recognised/i)).toBeVisible();
+  await expect(page.getByText(/Good|Caution|Red Flag/i).first()).not.toBeVisible();
+});
+
 test("Error state shown when API returns an error", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Watchlist", exact: true }).click();

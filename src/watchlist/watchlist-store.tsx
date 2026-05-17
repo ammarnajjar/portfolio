@@ -52,6 +52,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
       metrics: [],
       isLoading: true,
       error: null,
+      warning: null,
       lastUpdated: null,
     };
     setItems((prev) => {
@@ -72,6 +73,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
         metrics,
         isLoading: false,
         error: null,
+        warning: result.warning ?? null,
         lastUpdated: new Date().toISOString(),
       });
     } catch (e) {
@@ -93,7 +95,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
   const refreshItem = async (id: string) => {
     const item = items.find((it) => it.id === id);
     if (!item) return;
-    updateItem(id, { isLoading: true, error: null });
+    updateItem(id, { isLoading: true, error: null, warning: null });
     try {
       const result = await fetchFundamentals(item.input);
       const metrics = scoreMetrics(result.fundamentals);
@@ -106,6 +108,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
         metrics,
         isLoading: false,
         error: null,
+        warning: result.warning ?? null,
         lastUpdated: new Date().toISOString(),
       });
     } catch (e) {

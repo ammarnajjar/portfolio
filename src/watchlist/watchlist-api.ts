@@ -40,6 +40,7 @@ export interface FetchFundamentalsResult {
   currentPrice: number | null;
   currency: string;
   fundamentals: FundamentalsData;
+  warning?: string;
 }
 
 export const fetchFundamentals = async (
@@ -110,11 +111,17 @@ export const fetchFundamentals = async (
     floatShares: raw(dks.floatShares),
   };
 
+  const warning =
+    !pr.longName && currentPrice === null
+      ? "Symbol not recognised — check the ticker and try again"
+      : undefined;
+
   return {
     symbol: pr.symbol || symbol,
     name: pr.longName || symbol,
     currentPrice,
     currency: pr.currency || "USD",
     fundamentals,
+    warning,
   };
 };

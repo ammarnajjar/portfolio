@@ -107,8 +107,15 @@ export const WatchlistCard: React.FC<Props> = ({
         </div>
       )}
 
+      {/* Warning state — unrecognised symbol */}
+      {!item.error && item.warning && (
+        <div className="p-3 bg-amber-500/20 border border-amber-500/40 rounded-lg text-amber-300 text-sm">
+          {item.warning}
+        </div>
+      )}
+
       {/* Metrics table */}
-      {!item.isLoading && !item.error && item.metrics.length > 0 && (
+      {!item.isLoading && !item.error && !item.warning && item.metrics.length > 0 && (
         <table className="w-full">
           <tbody>
             {item.metrics.map(m => (
