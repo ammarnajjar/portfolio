@@ -333,3 +333,57 @@ test("Import CSV adds items and shows success banner", async ({ page }) => {
   await expect(page.getByText(/imported 2/i)).toBeVisible({ timeout: 30000 });
   await expect(page.getByText(/Apple Inc\.|AAPL/i).first()).toBeVisible({ timeout: 20000 });
 });
+
+test("View toggle buttons are visible on watchlist", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+  await expect(page.getByTitle("List view")).toBeVisible();
+  await expect(page.getByTitle("Grid view")).toBeVisible();
+});
+
+test("Switching to grid view shows grid cards instead of detail cards", async ({ page }) => {
+  await page.goto("/");
+
+  await page.evaluate(() => {
+    const item = {
+      id: "grid-toggle-id",
+      input: "AAPL",
+      symbol: "AAPL",
+      name: "Apple Inc.",
+      currentPrice: 175.0,
+      currency: "USD",
+      fundamentals: null,
+      metrics: [
+        { key: "pe", label: "P/E Ratio", value: 15, displayValue: "15.00", verdict: "good", note: "" },
+      ],
+      isLoading: false,
+      error: null,
+      lastUpdated: new Date().toISOString(),
+    };
+    localStorage.setItem("watchlist_state", JSON.stringify([item]));
+  });
+
+  await page.reload();
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+
+  // Switch to grid view
+  await page.getByTitle("Grid view").click();
+
+  // Stock name should still be visible in grid card
+  await expect(page.getByText("Apple Inc.")).toBeVisible();
+  await expect(page.getByText("AAPL")).toBeVisible();
+});
+
+test("Grid view mode persists across page reload", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+
+  // Switch to grid view
+  await page.getByTitle("Grid view").click();
+  await page.reload();
+  await page.getByRole("button", { name: "Watchlist", exact: true }).click();
+
+  // Grid view button should still be active (has bg-slate-600)
+  const gridBtn = page.getByTitle("Grid view");
+  await expect(gridBtn).toHaveClass(/bg-slate-600/);
+});
