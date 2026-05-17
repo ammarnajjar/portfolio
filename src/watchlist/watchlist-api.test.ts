@@ -103,19 +103,12 @@ describe("fetchFundamentals", () => {
     await expect(fetchFundamentals("BADTICKER")).rejects.toThrow("Not found");
   });
 
-  it("handles ISIN input by resolving symbol first", async () => {
-    // First call: ISIN search, second call: quoteSummary
-    vi.mocked(fetch)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          quotes: [{ symbol: "AAPL", quoteType: "EQUITY" }],
-        }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockQuoteSummaryResponse,
-      } as Response);
+  it("handles ISIN input by resolving symbol via local map", async () => {
+    // US0378331005 = AAPL in ISIN_MAP — resolves without a search network call
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockQuoteSummaryResponse,
+    } as Response);
 
     const result = await fetchFundamentals("US0378331005");
     expect(result.symbol).toBe("AAPL");

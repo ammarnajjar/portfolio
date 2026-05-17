@@ -1,20 +1,10 @@
 // src/watchlist/watchlist-api.ts
 import type { FundamentalsData } from "./watchlist-types";
+import { ISIN_MAP } from "../services/api";
 
 const PROXY_BASE = "https://corsproxy.io/?";
 const YAHOO_BASE = "https://query1.finance.yahoo.com";
 const YAHOO_SEARCH_BASE = `${YAHOO_BASE}/v1/finance/search`;
-
-// Mirrors the ISIN_MAP from src/services/api.ts for ISIN resolution
-const ISIN_MAP: Record<string, string> = {
-  US5949181045: "MSFT",
-  US0231351067: "AMZN",
-  US02079K3059: "GOOGL",
-  US88160R1014: "TSLA",
-  US67066G1040: "NVDA",
-  US30303M1027: "META",
-  US64110L1061: "NFLX",
-};
 
 const isIsin = (input: string) => /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(input);
 
@@ -92,32 +82,32 @@ export const fetchFundamentals = async (
   } = qs.result[0];
 
   // trailingPE is computed from price / trailingEps when not directly available
-  const trailingEps = raw(dks.trailingEps as RawField);
+  const trailingEps = raw(dks.trailingEps);
   const currentPrice = raw(pr.regularMarketPrice as RawField);
   const trailingPE =
-    trailingEps && currentPrice && trailingEps > 0
+    trailingEps !== null && trailingEps > 0 && currentPrice !== null
       ? currentPrice / trailingEps
       : null;
 
   const fundamentals: FundamentalsData = {
     trailingPE,
-    forwardPE: raw(dks.forwardPE as RawField),
-    pegRatio: raw(dks.pegRatio as RawField),
-    priceToBook: raw(dks.priceToBook as RawField),
-    enterpriseToEbitda: raw(dks.enterpriseToEbitda as RawField),
-    profitMargins: raw(fd.profitMargins as RawField),
-    operatingMargins: raw(fd.operatingMargins as RawField),
-    grossMargins: raw(fd.grossMargins as RawField),
-    revenueGrowth: raw(fd.revenueGrowth as RawField),
-    earningsGrowth: raw(fd.earningsGrowth as RawField),
-    returnOnEquity: raw(fd.returnOnEquity as RawField),
-    freeCashflow: raw(fd.freeCashflow as RawField),
-    totalRevenue: raw(fd.totalRevenue as RawField),
-    debtToEquity: raw(fd.debtToEquity as RawField),
-    currentRatio: raw(fd.currentRatio as RawField),
-    payoutRatio: raw(dks.payoutRatio as RawField),
-    sharesOutstanding: raw(dks.sharesOutstanding as RawField),
-    floatShares: raw(dks.floatShares as RawField),
+    forwardPE: raw(dks.forwardPE),
+    pegRatio: raw(dks.pegRatio),
+    priceToBook: raw(dks.priceToBook),
+    enterpriseToEbitda: raw(dks.enterpriseToEbitda),
+    profitMargins: raw(fd.profitMargins),
+    operatingMargins: raw(fd.operatingMargins),
+    grossMargins: raw(fd.grossMargins),
+    revenueGrowth: raw(fd.revenueGrowth),
+    earningsGrowth: raw(fd.earningsGrowth),
+    returnOnEquity: raw(fd.returnOnEquity),
+    freeCashflow: raw(fd.freeCashflow),
+    totalRevenue: raw(fd.totalRevenue),
+    debtToEquity: raw(fd.debtToEquity),
+    currentRatio: raw(fd.currentRatio),
+    payoutRatio: raw(dks.payoutRatio),
+    sharesOutstanding: raw(dks.sharesOutstanding),
+    floatShares: raw(dks.floatShares),
   };
 
   return {
