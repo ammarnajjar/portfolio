@@ -17,7 +17,7 @@ const YAHOO_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YAHOO_SEARCH_BASE = 'https://query1.finance.yahoo.com/v1/finance/search';
 
 // Fallback map for common ISINs that fail to resolve via free API
-const ISIN_MAP: Record<string, string> = {
+export const ISIN_MAP: Record<string, string> = {
   'US0378331005': 'AAPL', // Apple
   'US5949181045': 'MSFT', // Microsoft
   'US0231351067': 'AMZN', // Amazon

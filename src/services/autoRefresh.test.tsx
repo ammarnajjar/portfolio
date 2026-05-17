@@ -45,7 +45,7 @@ describe('Auto-refresh interval behavior', () => {
     render(
       <StoreProvider>
         <Controller />
-        <Layout>{null}</Layout>
+        <Layout activeTab="portfolio" onTabChange={() => {}}>{null}</Layout>
       </StoreProvider>
     )
 
