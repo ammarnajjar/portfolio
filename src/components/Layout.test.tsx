@@ -20,7 +20,7 @@ import { Layout } from './Layout'
 describe('Layout', () => {
   it('renders header and children', () => {
     render(
-      <Layout>
+      <Layout activeTab="portfolio" onTabChange={() => {}}>
         <div>child content</div>
       </Layout>
     )
