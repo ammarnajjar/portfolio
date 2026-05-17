@@ -6,7 +6,8 @@ const PROXY_BASE = "https://corsproxy.io/?";
 const YAHOO_BASE = "https://query1.finance.yahoo.com";
 const YAHOO_SEARCH_BASE = `${YAHOO_BASE}/v1/finance/search`;
 
-const isIsin = (input: string) => /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(input);
+export const ISIN_REGEX = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
+const isIsin = (input: string) => ISIN_REGEX.test(input);
 
 const proxyFetch = async (
   url: string,

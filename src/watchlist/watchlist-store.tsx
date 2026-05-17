@@ -28,6 +28,8 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [items, setItems] = useState<WatchlistItem[]>(() => loadFromStorage());
+  const itemsRef = React.useRef(items);
+  itemsRef.current = items;
 
   const updateItem = (id: string, patch: Partial<WatchlistItem>) => {
     setItems((prev) => {
@@ -41,7 +43,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const addItem = async (input: string) => {
     const normalised = input.trim().toUpperCase();
-    const duplicate = items.some(
+    const duplicate = itemsRef.current.some(
       (it) => it.input.toUpperCase() === normalised || it.symbol.toUpperCase() === normalised,
     );
     if (duplicate) throw new Error(`${normalised} is already in your watchlist`);

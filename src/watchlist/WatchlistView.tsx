@@ -6,7 +6,9 @@ import {
   generateWatchlistCSV,
   downloadWatchlistCSV,
   parseWatchlistCSV,
+  type WatchlistCSVRow,
 } from "./watchlist-csv";
+import { ISIN_REGEX } from "./watchlist-api";
 
 export const WatchlistView: React.FC = () => {
   const { items, addItem, removeItem, refreshItem } = useWatchlist();
@@ -15,6 +17,7 @@ export const WatchlistView: React.FC = () => {
   const [warning, setWarning] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +43,7 @@ export const WatchlistView: React.FC = () => {
       items.map((it) => ({
         symbol: it.symbol,
         name: it.name,
-        isin: /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(it.input) ? it.input : undefined,
+        isin: ISIN_REGEX.test(it.input) ? it.input : undefined,
       })),
     );
     downloadWatchlistCSV(csv, `watchlist-${today}.csv`);
@@ -55,7 +58,7 @@ export const WatchlistView: React.FC = () => {
     setWarning(null);
     setSuccess(null);
 
-    let rows: Awaited<ReturnType<typeof parseWatchlistCSV>>;
+    let rows: WatchlistCSVRow[];
     try {
       rows = await parseWatchlistCSV(file);
     } catch {
@@ -63,15 +66,20 @@ export const WatchlistView: React.FC = () => {
       return;
     }
 
+    setIsImporting(true);
     let added = 0;
     let skipped = 0;
-    for (const row of rows) {
-      try {
-        await addItem(row.isin ?? row.symbol);
-        added++;
-      } catch {
-        skipped++;
+    try {
+      for (const row of rows) {
+        try {
+          await addItem(row.isin ?? row.symbol);
+          added++;
+        } catch {
+          skipped++;
+        }
       }
+    } finally {
+      setIsImporting(false);
     }
     setSuccess(
       skipped > 0
@@ -96,9 +104,10 @@ export const WatchlistView: React.FC = () => {
             </button>
             <button
               onClick={handleImportClick}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors shadow-lg shadow-blue-500/20"
+              disabled={isImporting}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Import CSV
+              {isImporting ? "Importing..." : "Import CSV"}
             </button>
             <input
               ref={fileInputRef}
