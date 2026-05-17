@@ -25,8 +25,8 @@ const Dashboard: React.FC = () => {
   return (
     <Layout activeTab={activeTab} onTabChange={handleTabChange}>
       <div className="grid grid-cols-1 gap-8">
-        {/* Summary Card — always visible */}
-        <div className="glass-panel p-6 bg-gradient-to-br from-blue-900/50 to-slate-900/50 flex justify-between items-center">
+        {/* Summary Card — portfolio tab only */}
+        {activeTab === "portfolio" && <div className="glass-panel p-6 bg-gradient-to-br from-blue-900/50 to-slate-900/50 flex justify-between items-center">
           <div>
             <h2 className="text-sm text-slate-400 font-medium uppercase tracking-wider">
               Total Portfolio Value
@@ -74,7 +74,7 @@ const Dashboard: React.FC = () => {
               )}
             </button>
           </div>
-        </div>
+        </div>}
 
         {/* Tab content */}
         {activeTab === "portfolio" && (
